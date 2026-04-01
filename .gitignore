@@ -1,0 +1,43 @@
+# Dependencies & package manager
+node_modules/
+**/node_modules/
+.npm/
+**/.npm/
+
+# Build output
+dist/
+**/dist/
+frontend/dist/
+
+# Caches
+.cache/
+**/.cache/
+
+# Environment & secrets (keep *.env.example tracked)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Test / coverage artifacts
+coverage/
+**/coverage/
+test-results/
+playwright-report/
+blob-report/
+
+# OS
+.DS_Store
+# Windows reserved name — breaks `git add` if present as a real file
+NUL
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editors / IDEs
+.idea/
+*.swp
+*.swo
+*~
