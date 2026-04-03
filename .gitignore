@@ -42,3 +42,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
+.claude/
+**/sessions-2/
+sessions-2/
