@@ -72,6 +72,57 @@ const recordTransition = async ({ job, fromState, toState, actorId, comment = ''
 
 router.use(requireAuth);
 
+router.get('/', requirePermission('JOB_READ'), async (req, res) => {
+  const query = {};
+
+  const state = req.query['filter[state]'] || req.query.state;
+  if (state) {
+    query.current_state = state;
+  }
+
+  const department = req.query['filter[department]'] || req.query.department;
+  if (department) {
+    query.department = department;
+  }
+
+  if (isEmployer(req) && !isAdministrator(req)) {
+    query.created_by = String(req.auth.userId);
+  }
+
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const pageSize = Math.min(50, Math.max(1, Number(req.query.pageSize) || 20));
+  const sortField = req.query.sort === 'oldest' ? { created_at: 1 } : { created_at: -1 };
+
+  const [total, docs] = await Promise.all([
+    Job.countDocuments(query),
+    Job.find(query)
+      .sort(sortField)
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean()
+  ]);
+
+  return res.status(200).json({
+    data: docs.map((job) => ({
+      jobId: String(job._id),
+      department: job.department,
+      title: job.title,
+      description: job.description,
+      shiftInfo: job.shift_info,
+      state: job.current_state,
+      createdBy: job.created_by,
+      createdAt: job.created_at,
+      updatedAt: job.updated_at
+    })),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize))
+    }
+  });
+});
+
 router.post('/', requirePermission('JOB_EDIT'), async (req, res) => {
   const { department, title, description, shiftInfo } = req.body || {};
   if (!department || !title || !description || !shiftInfo) {

@@ -17,7 +17,7 @@ import {
   syncOfflineQueue
 } from './lib/api';
 import { clearQueuedWrites, getQueueSize } from './lib/offline';
-import { tabs, hasTabAccess } from './lib/tabs';
+import { tabs, hasTabAccess, PUBLIC_TABS } from './lib/tabs';
 
 const defaultAnalyticsForm = {
   metricKey: 'weekly_bookings',

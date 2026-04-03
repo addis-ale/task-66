@@ -11,13 +11,15 @@ export const tabs = [
   { id: 'audit', label: 'Audit' }
 ];
 
+export const PUBLIC_TABS = ['search', 'navigation'];
+
 export const roleAccess = {
-  search: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor'],
-  navigation: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor'],
+  search: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor', '__public__'],
+  navigation: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor', '__public__'],
   curator: ['Administrator', 'Curator'],
   routes: ['Administrator', 'Exhibit Manager'],
   programs: ['Administrator', 'Program Coordinator'],
-  staffing: ['Administrator', 'Employer', 'Reviewer'],
+  staffing: ['Administrator', 'Employer', 'Reviewer', 'Auditor'],
   analytics: ['Administrator', 'Curator', 'Program Coordinator', 'Auditor'],
   exports: ['Administrator', 'Auditor'],
   inbox: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor'],
@@ -28,12 +30,12 @@ export const tabRequirementById = {
   search: {
     title: 'Catalog Search',
     description:
-      'Search is available to signed-in operations users. Please sign in with a role that includes catalog read access.'
+      'Search and browse the museum catalog. Available to all visitors and staff.'
   },
   navigation: {
     title: 'Guided Navigation',
     description:
-      'Guided route consumption requires route-read permissions. Contact an administrator if this role is expected.'
+      'View exhibit routes and printable itineraries. Available to all visitors and staff.'
   },
   curator: {
     title: 'Curator Administration',
@@ -78,11 +80,16 @@ export const tabRequirementById = {
 };
 
 export const firstAllowedTab = (roles) => {
-  const match = tabs.find((tab) => (roleAccess[tab.id] || []).some((role) => roles.includes(role)));
+  const match = tabs.find((tab) => hasTabAccess(roles, tab.id));
   return match?.id || 'search';
 };
 
-export const hasTabAccess = (roles, tabId) => (roleAccess[tabId] || []).some((role) => roles.includes(role));
+export const hasTabAccess = (roles, tabId) => {
+  if (PUBLIC_TABS.includes(tabId)) {
+    return true;
+  }
+  return (roleAccess[tabId] || []).some((role) => roles.includes(role));
+};
 
 export const getTabRequirement = (tabId) =>
   tabRequirementById[tabId] || {

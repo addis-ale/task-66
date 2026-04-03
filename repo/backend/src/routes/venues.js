@@ -18,6 +18,56 @@ const router = express.Router();
 
 const METERS_PER_MINUTE_AT_3MPH = 80.4672;
 
+/* --- Public route-read endpoints (visitor / floor-staff access) --- */
+
+router.get('/routes/:routeId', async (req, res) => {
+  const route = await Route.findOne({ route_id: req.params.routeId }).lean();
+  if (!route) {
+    return sendError(res, req, 404, 'NOT_FOUND', 'Route not found');
+  }
+
+  const segments = await RouteSegment.find({ route_id: route.route_id }).sort({ order: 1 }).lean();
+  return res.status(200).json({
+    data: {
+      routeId: route.route_id,
+      venueId: String(route.venue_id),
+      name: route.name,
+      strictSequence: route.strict_sequence,
+      defaultPaceMph: route.default_pace_mph,
+      status: route.status,
+      segments: segments.map((segment) => ({
+        id: String(segment._id),
+        fromCaseId: String(segment.from_case_id),
+        toCaseId: String(segment.to_case_id),
+        segmentType: segment.segment_type,
+        dwellMinutes: segment.dwell_minutes,
+        distanceMeters: segment.distance_meters,
+        order: segment.order
+      }))
+    }
+  });
+});
+
+router.get('/routes/:routeId/itineraries', async (req, res) => {
+  const route = await Route.findOne({ route_id: req.params.routeId }).lean();
+  if (!route) {
+    return sendError(res, req, 404, 'NOT_FOUND', 'Route not found');
+  }
+
+  const itineraries = await Itinerary.find({ route_id: route.route_id }).sort({ generated_at: -1 }).limit(20).lean();
+  return res.status(200).json({
+    data: itineraries.map((item) => ({
+      itineraryId: item.itinerary_id,
+      routeId: item.route_id,
+      estimatedWalkMinutes: item.estimated_walk_minutes,
+      generatedAt: item.generated_at,
+      printable: item.printable_payload
+    }))
+  });
+});
+
+/* --- Authenticated endpoints below --- */
+
 router.use(requireAuth);
 
 router.post('/venues', requirePermission('VENUE_MANAGE'), async (req, res) => {
@@ -124,34 +174,6 @@ router.post('/routes', requirePermission('VENUE_MANAGE'), async (req, res) => {
       name: route.name,
       strictSequence: route.strict_sequence,
       defaultPaceMph: route.default_pace_mph
-    }
-  });
-});
-
-router.get('/routes/:routeId', requirePermission('ROUTE_READ'), async (req, res) => {
-  const route = await Route.findOne({ route_id: req.params.routeId }).lean();
-  if (!route) {
-    return sendError(res, req, 404, 'NOT_FOUND', 'Route not found');
-  }
-
-  const segments = await RouteSegment.find({ route_id: route.route_id }).sort({ order: 1 }).lean();
-  return res.status(200).json({
-    data: {
-      routeId: route.route_id,
-      venueId: String(route.venue_id),
-      name: route.name,
-      strictSequence: route.strict_sequence,
-      defaultPaceMph: route.default_pace_mph,
-      status: route.status,
-      segments: segments.map((segment) => ({
-        id: String(segment._id),
-        fromCaseId: String(segment.from_case_id),
-        toCaseId: String(segment.to_case_id),
-        segmentType: segment.segment_type,
-        dwellMinutes: segment.dwell_minutes,
-        distanceMeters: segment.distance_meters,
-        order: segment.order
-      }))
     }
   });
 });
@@ -357,24 +379,6 @@ router.post('/routes/:routeId/itineraries', requirePermission('VENUE_MANAGE'), a
       estimatedWalkMinutes,
       printable: printablePayload
     }
-  });
-});
-
-router.get('/routes/:routeId/itineraries', requirePermission('ROUTE_READ'), async (req, res) => {
-  const route = await Route.findOne({ route_id: req.params.routeId }).lean();
-  if (!route) {
-    return sendError(res, req, 404, 'NOT_FOUND', 'Route not found');
-  }
-
-  const itineraries = await Itinerary.find({ route_id: route.route_id }).sort({ generated_at: -1 }).limit(20).lean();
-  return res.status(200).json({
-    data: itineraries.map((item) => ({
-      itineraryId: item.itinerary_id,
-      routeId: item.route_id,
-      estimatedWalkMinutes: item.estimated_walk_minutes,
-      generatedAt: item.generated_at,
-      printable: item.printable_payload
-    }))
   });
 });
 

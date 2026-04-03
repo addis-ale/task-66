@@ -13,9 +13,11 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
   const [appealId, setAppealId] = useState('');
   const [decision, setDecision] = useState('APPROVE');
   const [comment, setComment] = useState('');
+  const [listFilter, setListFilter] = useState({ state: '', department: '', page: '1' });
   const [pending, setPending] = useState('');
   const [state, setState] = useState({
     jobs: [],
+    listing: { items: [], pagination: null },
     history: null
   });
 
@@ -190,6 +192,19 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
       setMessage(`Appeal decision recorded: ${response.data.state}`);
     });
 
+  const loadJobs = (nextPage) =>
+    run('list-jobs', async () => {
+      const query = { page: nextPage || listFilter.page, pageSize: '20' };
+      if (listFilter.state) query['filter[state]'] = listFilter.state;
+      if (listFilter.department) query['filter[department]'] = listFilter.department;
+      const response = await apiRequest({ path: '/jobs', method: 'GET', query, allowQueue: false });
+      setState((prev) => ({
+        ...prev,
+        listing: { items: response.data || [], pagination: response.pagination || null }
+      }));
+      setMessage(`Loaded ${(response.data || []).length} job(s)`);
+    });
+
   const loadHistory = () =>
     run('history', async () => {
       if (!selectedJobId) {
@@ -271,6 +286,73 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
           </table>
         )}
       </section>
+
+      {canRead ? (
+        <section className="route-block">
+          <h3>Job Listings</h3>
+          <div className="row wrap">
+            <select value={listFilter.state} onChange={(e) => setListFilter((prev) => ({ ...prev, state: e.target.value, page: '1' }))}>
+              <option value="">All states</option>
+              <option value="DRAFT">Draft</option>
+              <option value="PENDING_APPROVAL">Pending Approval</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="TAKEDOWN">Takedown</option>
+              <option value="APPEAL_PENDING">Appeal Pending</option>
+              <option value="REJECTED_APPEAL">Rejected Appeal</option>
+              <option value="REPUBLISHED_NEW_VERSION">Republished</option>
+            </select>
+            <input value={listFilter.department} onChange={(e) => setListFilter((prev) => ({ ...prev, department: e.target.value, page: '1' }))} placeholder="department filter" />
+            <button onClick={() => loadJobs('1')} disabled={pending !== ''}>{pending === 'list-jobs' ? 'Loading...' : 'Load Jobs'}</button>
+          </div>
+          {state.listing.items.length > 0 ? (
+            <div>
+              <p className="small">
+                Page {state.listing.pagination?.page || 1} of {state.listing.pagination?.totalPages || 1} ({state.listing.pagination?.total || 0} total)
+              </p>
+              <table className="segment-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Department</th>
+                    <th>Shift</th>
+                    <th>State</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.listing.items.map((job) => (
+                    <tr key={job.jobId}>
+                      <td>{job.title}</td>
+                      <td>{job.department}</td>
+                      <td>{job.shiftInfo}</td>
+                      <td>{job.state}</td>
+                      <td>{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : '-'}</td>
+                      <td>
+                        <button className="ghost" onClick={() => {
+                          setSelectedJobId(job.jobId);
+                          setState((prev) => {
+                            const exists = prev.jobs.some((j) => j.jobId === job.jobId);
+                            return exists ? prev : { ...prev, jobs: [...prev.jobs, { jobId: job.jobId, state: job.state }] };
+                          });
+                        }}>
+                          Select
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="row wrap">
+                <button onClick={() => loadJobs(Math.max(1, (state.listing.pagination?.page || 1) - 1))} disabled={pending !== '' || (state.listing.pagination?.page || 1) <= 1}>Prev</button>
+                <button onClick={() => loadJobs((state.listing.pagination?.page || 1) + 1)} disabled={pending !== '' || (state.listing.pagination?.page || 1) >= (state.listing.pagination?.totalPages || 1)}>Next</button>
+              </div>
+            </div>
+          ) : (
+            <p className="small">No jobs found. Use filters or click Load Jobs.</p>
+          )}
+        </section>
+      ) : null}
 
       {state.history ? (
         <section className="route-block">

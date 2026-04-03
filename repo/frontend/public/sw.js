@@ -1,5 +1,16 @@
 const APP_CACHE = 'museum-app-shell-v1';
+const API_CACHE = 'museum-api-read-v1';
 const APP_ASSETS = ['/', '/index.html'];
+
+const API_CACHEABLE_PATTERNS = [
+  '/api/v1/catalog/search',
+  '/api/v1/catalog/autocomplete',
+  '/api/v1/catalog/hot-keywords',
+  '/api/v1/routes/'
+];
+
+const isCacheableApi = (pathname) =>
+  API_CACHEABLE_PATTERNS.some((pattern) => pathname.startsWith(pattern));
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -12,7 +23,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => ![APP_CACHE].includes(key))
+          .filter((key) => ![APP_CACHE, API_CACHE].includes(key))
           .map((key) => caches.delete(key))
       )
     )
@@ -36,7 +47,29 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.pathname.startsWith('/api/v1/') || request.url.includes('/api/v1/')) {
-    event.respondWith(fetch(request));
+    if (isCacheableApi(url.pathname)) {
+      event.respondWith(
+        fetch(request)
+          .then((response) => {
+            if (response.ok) {
+              const clone = response.clone();
+              caches.open(API_CACHE).then((cache) => cache.put(request, clone));
+            }
+            return response;
+          })
+          .catch(() => caches.match(request).then((cached) => cached || new Response(
+            JSON.stringify({ error: 'OFFLINE', message: 'You are offline and no cached data is available.' }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } }
+          )))
+      );
+    } else {
+      event.respondWith(
+        fetch(request).catch(() => new Response(
+          JSON.stringify({ error: 'OFFLINE', message: 'You are offline. This request requires connectivity.' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        ))
+      );
+    }
     return;
   }
 
