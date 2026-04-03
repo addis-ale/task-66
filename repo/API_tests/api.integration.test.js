@@ -1035,7 +1035,7 @@ test('routes and itinerary behavior with required/optional/detour and time math'
   assert.ok(optional.status === 201);
 });
 
-test('route guided read endpoints honor ROUTE_READ permission', { concurrency: false }, async () => {
+test('route guided read endpoints are publicly accessible for visitor and floor-staff use', { concurrency: false }, async () => {
   const admin = await login('admin.dev', 'AdminSecure!2026');
   const reviewer = await login('reviewer.dev', 'ReviewerSecure!2026');
   const suffix = `${Date.now()}`;
@@ -1129,13 +1129,13 @@ test('route guided read endpoints honor ROUTE_READ permission', { concurrency: f
   });
   const noRouteReadUser = await login(noRouteReadUsername, 'NoRouteRead!2026');
 
-  const forbiddenRead = await request({
+  const publicRead = await request({
     path: `/routes/${route.json.data.routeId}`,
     method: 'GET',
     cookie: noRouteReadUser.cookie
   });
-  assert.equal(forbiddenRead.status, 403);
-  assert.equal(forbiddenRead.json.error.code, 'FORBIDDEN');
+  assert.equal(publicRead.status, 200);
+  assert.ok(publicRead.json.data.routeId, 'route read is publicly accessible for visitor/floor-staff access');
 });
 
 test('routes reject invalid segment metrics and invalid optional branch selection', { concurrency: false }, async () => {
