@@ -90,7 +90,7 @@ router.get('/', requirePermission('JOB_READ'), async (req, res) => {
   }
 
   const page = Math.max(1, Number(req.query.page) || 1);
-  const pageSize = Math.min(50, Math.max(1, Number(req.query.pageSize) || 20));
+  const pageSize = Math.min(51, Math.max(1, Number(req.query.pageSize) || 20));
   const sortField = req.query.sort === 'oldest' ? { created_at: 1 } : { created_at: -1 };
 
   const [total, docs] = await Promise.all([

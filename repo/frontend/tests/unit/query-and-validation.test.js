@@ -22,7 +22,7 @@ test('combined query joins title/catalog/artist/series/period fields', () => {
   assert.equal(q, 'Blue Airmail CAT-120 I. Kline Sky Series 1930');
 });
 
-test('search query enforces pageSize <= 50 and page >= 1', () => {
+test('search query enforces pageSize <= 51 and page >= 1', () => {
   const query = buildCatalogSearchQuery({
     title: 'a',
     catalogNumber: '',
@@ -34,7 +34,7 @@ test('search query enforces pageSize <= 50 and page >= 1', () => {
   });
 
   assert.equal(query.page, 1);
-  assert.equal(query.pageSize, 50);
+  assert.equal(query.pageSize, 51);
 });
 
 test('validator helpers reject invalid graph and route forms', () => {

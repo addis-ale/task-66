@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { validateRouteSegmentInput } from '../validators/forms';
 
+const isQueued = (response) => response?.data?.queued === true;
+
 const SEGMENT_TYPES = [
   { value: 'REQUIRED_NEXT', label: 'Required Next', color: '#1f7a4d' },
   { value: 'OPTIONAL_BRANCH', label: 'Optional Branch', color: '#2a6fb0' },
@@ -108,18 +110,30 @@ function RouteBuilderTab({ apiRequest, csrfToken, setMessage, setError, acquireS
           defaultPaceMph: 3
         }
       });
+      if (isQueued(venue)) {
+        setMessage('Hierarchy creation queued offline. It will sync when back online.');
+        return;
+      }
       const hall = await apiRequest({
         path: `/venues/${venue.data.id}/halls`,
         method: 'POST',
         csrfToken,
         body: { name: setupForm.hallName }
       });
+      if (isQueued(hall)) {
+        setMessage('Hierarchy creation partially queued offline. It will sync when back online.');
+        return;
+      }
       const zone = await apiRequest({
         path: `/halls/${hall.data.id}/zones`,
         method: 'POST',
         csrfToken,
         body: { name: setupForm.zoneName }
       });
+      if (isQueued(zone)) {
+        setMessage('Hierarchy creation partially queued offline. It will sync when back online.');
+        return;
+      }
       const route = await apiRequest({
         path: '/routes',
         method: 'POST',
@@ -131,6 +145,10 @@ function RouteBuilderTab({ apiRequest, csrfToken, setMessage, setError, acquireS
           defaultPaceMph: 3
         }
       });
+      if (isQueued(route)) {
+        setMessage('Route creation queued offline. It will sync when back online.');
+        return;
+      }
 
       setHierarchy({
         venueId: venue.data.id,
@@ -167,6 +185,10 @@ function RouteBuilderTab({ apiRequest, csrfToken, setMessage, setError, acquireS
         body: { name: newCaseName.trim() }
       });
 
+      if (isQueued(response)) {
+        setMessage('Display case creation queued offline. It will sync when back online.');
+        return;
+      }
       setCases((prev) => [...prev, { id: response.data.id, name: response.data.name }]);
       setNewCaseName(`Case ${cases.length + 2}`);
       setMessage(`Added display case ${response.data.name}.`);

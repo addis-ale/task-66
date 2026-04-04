@@ -9,7 +9,7 @@ router.use(requireAuth);
 
 router.get('/messages', async (req, res) => {
   const page = Math.max(1, Number(req.query.page || 1));
-  const pageSize = Math.min(50, Math.max(1, Number(req.query.pageSize || 20)));
+  const pageSize = Math.min(51, Math.max(1, Number(req.query.pageSize || 20)));
   const unread = req.query['filter[unread]'] || req.query?.filter?.unread;
   const type = req.query['filter[type]'] || req.query?.filter?.type;
 

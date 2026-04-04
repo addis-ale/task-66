@@ -30,7 +30,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8080
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173,http://localhost:8080}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173,http://localhost:8888}
       ENABLE_SWAGGER: ${ENABLE_SWAGGER:-true}
       SESSION_SECRET: ${SESSION_SECRET:-local-dev-session-secret-change-me}
       SESSION_COOKIE_NAME: museum_sid

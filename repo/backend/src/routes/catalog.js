@@ -9,7 +9,7 @@ const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/rbac');
 
 const router = express.Router();
-const MAX_CATALOG_PAGE_SIZE = 50;
+const MAX_CATALOG_PAGE_SIZE = 51;
 
 const clampPageSize = (value) => {
   const parsed = Number(value || 20);
@@ -211,7 +211,7 @@ router.get('/search', async (req, res) => {
 
   if (!page || !pageSize || pageSizeRaw > MAX_CATALOG_PAGE_SIZE) {
     return sendError(res, req, 400, 'VALIDATION_ERROR', 'Request validation failed', [
-      { field: 'page/pageSize', issue: 'page must be >=1 and pageSize must be <= 50' }
+      { field: 'page/pageSize', issue: 'page must be >=1 and pageSize must be <= 51' }
     ]);
   }
 

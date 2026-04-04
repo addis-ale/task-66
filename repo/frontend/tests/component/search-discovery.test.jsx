@@ -85,7 +85,7 @@ describe('SearchDiscoveryTab', () => {
     });
   });
 
-  it('enforces page size boundary in UI: 50 allowed and 51 blocked', async () => {
+  it('enforces page size boundary in UI: 51 allowed and 52 blocked', async () => {
     const user = userEvent.setup();
     const apiRequest = vi.fn(async (request) => {
       if (request.path === '/catalog/search') {
@@ -109,21 +109,21 @@ describe('SearchDiscoveryTab', () => {
     render(<SearchDiscoveryTab {...createBaseProps(apiRequest)} />);
 
     await user.type(screen.getByPlaceholderText('title'), 'Boundary');
-    const pageSizeInput = screen.getByPlaceholderText('page size (max 50)');
+    const pageSizeInput = screen.getByPlaceholderText('page size (max 51)');
     await user.clear(pageSizeInput);
-    await user.type(pageSizeInput, '50');
+    await user.type(pageSizeInput, '51');
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
     await waitFor(() => {
       expect(screen.getByText('Boundary Result')).toBeTruthy();
     });
     expect(apiRequest).toHaveBeenCalledTimes(1);
-    expect(apiRequest.mock.calls[0][0].query.pageSize).toBe(50);
+    expect(apiRequest.mock.calls[0][0].query.pageSize).toBe(51);
 
     await user.clear(pageSizeInput);
-    await user.type(pageSizeInput, '51');
+    await user.type(pageSizeInput, '52');
     await user.click(screen.getByRole('button', { name: 'Search' }));
-    expect(screen.getByText('Page size cannot exceed 50.')).toBeTruthy();
+    expect(screen.getByText('Page size cannot exceed 51.')).toBeTruthy();
     expect(apiRequest).toHaveBeenCalledTimes(1);
   });
 

@@ -61,12 +61,12 @@ function SearchDiscoveryTab({ apiRequest, csrfToken, canCurateKeywords, setMessa
     const requestedPageSize = Number(searchForm.pageSize || 20);
     if (!Number.isInteger(requestedPageSize) || requestedPageSize < 1) {
       setPendingState('search', false);
-      setSearchValidationError('Page size must be a whole number from 1 to 50.');
+      setSearchValidationError('Page size must be a whole number from 1 to 51.');
       return;
     }
     if (requestedPageSize > CATALOG_MAX_PAGE_SIZE) {
       setPendingState('search', false);
-      setSearchValidationError('Page size cannot exceed 50.');
+      setSearchValidationError('Page size cannot exceed 51.');
       return;
     }
 
@@ -258,7 +258,7 @@ function SearchDiscoveryTab({ apiRequest, csrfToken, canCurateKeywords, setMessa
               updateSearch('pageSize', e.target.value);
               setSearchValidationError('');
             }}
-            placeholder="page size (max 50)"
+            placeholder="page size (max 51)"
           />
           <button onClick={() => runSearch(1)} disabled={pending.search}>{pending.search ? 'Searching...' : 'Search'}</button>
           <button onClick={loadAutocomplete} disabled={pending.autocomplete}>{pending.autocomplete ? 'Loading...' : 'Autocomplete'}</button>

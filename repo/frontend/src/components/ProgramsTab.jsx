@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 
+const isQueued = (response) => response?.data?.queued === true;
+
 const defaultProgramDraft = {
   type: 'DOCENT_TRAINING',
   title: 'Docent Basics',
@@ -83,6 +85,10 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
           capacity: Number(programDraft.capacity)
         }
       });
+      if (isQueued(response)) {
+        setMessage('Program creation queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({ ...prev, program: response.data }));
       setMessage(`Program created: ${response.data.title}`);
     });
@@ -102,6 +108,10 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
           contact: coachDraft.contact
         }
       });
+      if (isQueued(response)) {
+        setMessage('Coach creation queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({ ...prev, coach: response.data }));
       setMessage(`Coach created: ${response.data.name}`);
     });
@@ -121,6 +131,10 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
           timezone: availabilityDraft.timezone
         }
       });
+      if (isQueued(response)) {
+        setMessage('Availability update queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({ ...prev, availability: response.data }));
       setMessage('Coach availability window added');
     });
@@ -144,6 +158,10 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
           capacity: Number(sessionDraft.capacity)
         }
       });
+      if (isQueued(response)) {
+        setMessage('Session scheduling queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({ ...prev, session: response.data }));
       setMessage(`Session scheduled with capacity ${response.data.capacity}`);
     });
@@ -159,6 +177,10 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
         csrfToken,
         body: { participantId }
       });
+      if (isQueued(response)) {
+        setMessage('Registration queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         registrations: [
@@ -188,6 +210,10 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
         method: 'POST',
         csrfToken
       });
+      if (isQueued(response)) {
+        setMessage('Cancellation queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         registrations: prev.registrations.map((entry) =>
@@ -214,6 +240,10 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
         method: 'POST',
         csrfToken
       });
+      if (isQueued(response)) {
+        setMessage('No-show report queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         registrations: prev.registrations.map((entry) =>
@@ -238,6 +268,10 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
         method: 'POST',
         csrfToken
       });
+      if (isQueued(response)) {
+        setMessage('Waitlist confirmation queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         registrations: prev.registrations.map((entry) =>

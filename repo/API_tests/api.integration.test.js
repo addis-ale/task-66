@@ -770,20 +770,20 @@ test('catalog: page size validation, filtering, autocomplete, hot keywords role 
   assert.equal(created.status, 201);
 
   const maxAllowedPage = await request({
-    path: '/catalog/search?q=Route&page=1&pageSize=50',
+    path: '/catalog/search?q=Route&page=1&pageSize=51',
     method: 'GET'
   });
   assert.equal(maxAllowedPage.status, 200);
 
   const tooLargePage = await request({
-    path: '/catalog/search?q=Route&page=1&pageSize=51',
+    path: '/catalog/search?q=Route&page=1&pageSize=52',
     method: 'GET'
   });
   assert.equal(tooLargePage.status, 400);
   assert.equal(tooLargePage.json.error.message, 'Request validation failed');
   assert.ok(
     tooLargePage.json.error.details.some(
-      (item) => item.field === 'page/pageSize' && String(item.issue).includes('pageSize must be <= 50')
+      (item) => item.field === 'page/pageSize' && String(item.issue).includes('pageSize must be <= 51')
     )
   );
 

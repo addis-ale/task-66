@@ -1,6 +1,6 @@
 import { enqueueWrite, syncQueuedWrites } from './offline.js';
 
-const baseUrl = (import.meta?.env?.VITE_BACKEND_URL || 'http://localhost:8080') + '/api/v1';
+const baseUrl = (import.meta?.env?.VITE_BACKEND_URL || '') + '/api/v1';
 const getCache = new Map();
 
 let authContext = {

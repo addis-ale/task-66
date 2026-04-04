@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 
+const isQueued = (response) => response?.data?.queued === true;
+
 const defaultJobForm = {
   department: 'Events',
   title: 'Weekend Exhibit Assistant',
@@ -53,6 +55,10 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
   const createDraft = () =>
     run('create-draft', async () => {
       const response = await apiRequest({ path: '/jobs', method: 'POST', csrfToken, body: jobForm });
+      if (isQueued(response)) {
+        setMessage('Job draft queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         jobs: [...prev.jobs, { jobId: response.data.jobId, state: response.data.state }]
@@ -72,6 +78,10 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
         csrfToken,
         body: jobForm
       });
+      if (isQueued(response)) {
+        setMessage('Draft update queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         jobs: prev.jobs.map((job) => (job.jobId === selectedJobId ? { ...job, state: response.data.state } : job))
@@ -85,6 +95,10 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
         throw new Error('Select a job first');
       }
       const response = await apiRequest({ path: `/jobs/${selectedJobId}/submit`, method: 'POST', csrfToken });
+      if (isQueued(response)) {
+        setMessage('Job submission queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         jobs: prev.jobs.map((job) => (job.jobId === selectedJobId ? { ...job, state: response.data.state } : job))
@@ -124,6 +138,10 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
         csrfToken,
         body: { comment: comment || 'Rejected for revisions' }
       });
+      if (isQueued(response)) {
+        setMessage('Rejection queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         jobs: prev.jobs.map((job) => (job.jobId === selectedJobId ? { ...job, state: response.data.state } : job))
@@ -142,6 +160,10 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
         csrfToken,
         body: { policyCode: 'POL-17', reason: comment || 'Policy takedown' }
       });
+      if (isQueued(response)) {
+        setMessage('Takedown queued offline. It will sync when back online.');
+        return;
+      }
       setState((prev) => ({
         ...prev,
         jobs: prev.jobs.map((job) => (job.jobId === selectedJobId ? { ...job, state: response.data.state } : job))
@@ -160,6 +182,10 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
         csrfToken,
         body: { comment: comment || 'Appeal requested' }
       });
+      if (isQueued(response)) {
+        setMessage('Appeal queued offline. It will sync when back online.');
+        return;
+      }
       setAppealId(response.data.appealId);
       setState((prev) => ({
         ...prev,

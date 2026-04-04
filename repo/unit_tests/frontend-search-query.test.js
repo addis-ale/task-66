@@ -8,7 +8,7 @@ const importModule = async (relativePath) => {
   return import(pathToFileURL(absolutePath).href);
 };
 
-test('search query builder includes supported filters and clamps pageSize to 50', async () => {
+test('search query builder includes supported filters and clamps pageSize to 51', async () => {
   const { buildCatalogSearchQuery } = await importModule('frontend/src/lib/search-query.js');
   const query = buildCatalogSearchQuery({
     title: 'airmail',
@@ -23,7 +23,7 @@ test('search query builder includes supported filters and clamps pageSize to 50'
 
   assert.equal(query.q, 'airmail');
   assert.equal(query.page, 2);
-  assert.equal(query.pageSize, 50);
+  assert.equal(query.pageSize, 51);
   assert.equal(query.sort, 'title:asc');
   assert.equal(query['filter[category]'], 'Showcase');
   assert.equal(query['filter[tags]'], 'airmail,blue');

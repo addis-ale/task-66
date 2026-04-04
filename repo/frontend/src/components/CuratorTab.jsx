@@ -9,6 +9,8 @@ import {
 import GraphSnapshot from './GraphSnapshot';
 import ValidationIssuesPanel from './ValidationIssuesPanel';
 
+const isQueued = (response) => response?.data?.queued === true;
+
 const relationTypes = [
   'INFLUENCED_BY',
   'CREATED_BY',
@@ -92,6 +94,10 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
   const createDraft = () =>
     run('create-draft', async () => {
       const response = await apiRequest({ path: '/graph/drafts', method: 'POST', csrfToken });
+      if (isQueued(response)) {
+        setMessage('Draft creation queued offline. It will sync when back online.');
+        return;
+      }
       await refreshDraft(response.data.draftId);
       setEditingNodeId('');
       setEditingEdgeId('');
@@ -116,8 +122,9 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
         throw new Error(metadataParse.error);
       }
 
+      let response;
       if (editingNodeId) {
-        await apiRequest({
+        response = await apiRequest({
           path: `/graph/drafts/${graphState.draftId}/nodes/${editingNodeId}`,
           method: 'PATCH',
           csrfToken,
@@ -126,9 +133,8 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
             metadata: metadataParse.value
           }
         });
-        setMessage('Node updated');
       } else {
-        await apiRequest({
+        response = await apiRequest({
           path: `/graph/drafts/${graphState.draftId}/nodes`,
           method: 'POST',
           csrfToken,
@@ -138,9 +144,14 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
             metadata: metadataParse.value
           }
         });
-        setMessage('Node created');
       }
 
+      if (isQueued(response)) {
+        setMessage('Node change queued offline. It will sync when back online.');
+        return;
+      }
+
+      setMessage(editingNodeId ? 'Node updated' : 'Node created');
       await refreshDraft();
       setEditingNodeId('');
       setNodeForm(NODE_DEFAULTS);
@@ -148,11 +159,15 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
 
   const deleteNode = (nodeId) =>
     run('delete-node', async () => {
-      await apiRequest({
+      const response = await apiRequest({
         path: `/graph/drafts/${graphState.draftId}/nodes/${nodeId}`,
         method: 'DELETE',
         csrfToken
       });
+      if (isQueued(response)) {
+        setMessage('Node deletion queued offline. It will sync when back online.');
+        return;
+      }
       await refreshDraft();
       setMessage('Node deleted');
       if (editingNodeId === nodeId) {
@@ -177,8 +192,9 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
         throw new Error(constraintsParse.error);
       }
 
+      let response;
       if (editingEdgeId) {
-        await apiRequest({
+        response = await apiRequest({
           path: `/graph/drafts/${graphState.draftId}/edges/${editingEdgeId}`,
           method: 'PATCH',
           csrfToken,
@@ -190,9 +206,8 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
             constraints: constraintsParse.value
           }
         });
-        setMessage('Edge updated');
       } else {
-        await apiRequest({
+        response = await apiRequest({
           path: `/graph/drafts/${graphState.draftId}/edges`,
           method: 'POST',
           csrfToken,
@@ -204,9 +219,14 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
             constraints: constraintsParse.value
           }
         });
-        setMessage('Edge created');
       }
 
+      if (isQueued(response)) {
+        setMessage('Edge change queued offline. It will sync when back online.');
+        return;
+      }
+
+      setMessage(editingEdgeId ? 'Edge updated' : 'Edge created');
       await refreshDraft();
       setEditingEdgeId('');
       setEdgeForm(EDGE_DEFAULTS);
@@ -214,11 +234,15 @@ function CuratorTab({ apiRequest, csrfToken, acquireStepUpTokenFor, setMessage, 
 
   const deleteEdge = (edgeId) =>
     run('delete-edge', async () => {
-      await apiRequest({
+      const response = await apiRequest({
         path: `/graph/drafts/${graphState.draftId}/edges/${edgeId}`,
         method: 'DELETE',
         csrfToken
       });
+      if (isQueued(response)) {
+        setMessage('Edge deletion queued offline. It will sync when back online.');
+        return;
+      }
       await refreshDraft();
       setMessage('Edge deleted');
       if (editingEdgeId === edgeId) {

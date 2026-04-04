@@ -1,4 +1,4 @@
-export const clampPageSize = (value, max = 50) => {
+export const clampPageSize = (value, max = 51) => {
   const parsed = Number(value || 20);
   if (!Number.isFinite(parsed)) {
     return 20;

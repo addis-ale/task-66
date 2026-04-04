@@ -53,6 +53,14 @@ docker-compose exec backend ENABLE_DEV_SEED=true npm run seed:dev
   - Send `X-Step-Up-Token` for sensitive actions after `POST /auth/step-up`.
 - Safety note: enabling Swagger in production exposes API documentation; keep `ENABLE_SWAGGER=false` in real production deployments.
 
+## 1.1) Frontend API Configuration
+
+The frontend uses a single `VITE_BACKEND_URL` environment variable to locate the backend API:
+
+- **Docker (production)**: `VITE_BACKEND_URL` is not set; the frontend defaults to same-origin relative paths (`/api/v1`). The nginx reverse proxy in `frontend/nginx.conf` forwards `/api/v1` requests to the backend container.
+- **Local development** (`npm run dev`): Copy `frontend/.env.example` to `frontend/.env`. The example sets `VITE_BACKEND_URL=http://localhost:8888` which matches the Docker Compose backend port mapping. The Vite dev server also proxies `/api/v1` to `http://localhost:8888` for convenience.
+- **Standalone frontend** (no backend): Omit or leave `VITE_BACKEND_URL` empty; API calls will target the current origin.
+
 ## 2) Runtime Readiness Behavior
 
 - Health endpoint is always reachable at `GET /api/v1/health`.
@@ -67,7 +75,7 @@ docker-compose exec backend ENABLE_DEV_SEED=true npm run seed:dev
 - Lockout behavior: failed login attempts for existing users count toward lockout even when submitted password format is weak.
 - Structured runtime logs include `requestId`, `route`, `actorId`, `action`, `outcome`, and `errorCode` (without request body/password logging).
 - Export detail access is object-scoped: requester or Administrator only.
-- Catalog pagination contract: `pageSize` accepts up to **50**; `51+` returns validation error.
+- Catalog pagination contract: `pageSize` accepts up to **51**; `52+` returns validation error.
 
 ## 3) Deterministic Verification Commands
 
@@ -101,16 +109,16 @@ Coverage highlights in the existing suite now include:
 - session idle-expiry boundary unit check without wall-clock waiting
 - step-up token expiry timeout enforcement
 - audit mutation attempts blocked and invalid audit date filters rejected
-- catalog `pageSize` boundary contract (`50` allowed, `51` rejected)
+- catalog `pageSize` boundary contract (`51` allowed, `52` rejected)
 
-### Frontend verification (Docker context)
+### Frontend verification (local Node.js)
 
-Run these commands using Docker Compose exec:
+The Docker frontend service runs an nginx production image (multi-stage build) and does not include Node.js tooling. Run frontend tests from the host machine with Node.js 20+ installed:
 
 1) Install frontend dependencies
 
 ```bash
-docker-compose exec frontend npm install
+cd frontend && npm install
 ```
 
 Expected output includes:
@@ -121,7 +129,7 @@ Expected output includes:
 2) Build frontend production bundle
 
 ```bash
-docker-compose exec frontend npm run build
+npm run build
 ```
 
 Expected output includes:
@@ -132,9 +140,9 @@ Expected output includes:
 3) Run unit/component/integration suites separately
 
 ```bash
-docker-compose exec frontend npm run test:unit
-docker-compose exec frontend npm run test:component
-docker-compose exec frontend npm run test:integration
+npm run test:unit
+npm run test:component
+npm run test:integration
 ```
 
 Expected output includes:
@@ -145,15 +153,15 @@ Expected output includes:
 4) Run all frontend tests in one command
 
 ```bash
-docker-compose exec frontend npm run test:frontend
+npm run test:frontend
 ```
 
 Expected output includes all three suites passing in sequence.
 
-5) Install Playwright browser prerequisite (required once per container)
+5) Install Playwright browser prerequisite (required once)
 
 ```bash
-docker-compose exec frontend npm run test:e2e:setup
+npm run test:e2e:setup
 ```
 
 This runs `playwright install chromium` and output includes browser download/install completion.
@@ -161,7 +169,7 @@ This runs `playwright install chromium` and output includes browser download/ins
 6) Run E2E suite
 
 ```bash
-docker-compose exec frontend npm run test:e2e
+npm run test:e2e
 ```
 
 Expected output includes Playwright passing summary for all specs.
@@ -176,6 +184,9 @@ Frontend verification coverage includes:
 - restricted panel render guard denial behavior
 - route-builder validation and itinerary generation flow states
 - program/staffing failure and retry behavior
+- curator graph publish blocking when validation issues (duplicate/cycle/orphan) are present
+- offline queued-write UX messaging versus committed success distinction
+- guided navigation route load, segment display, itinerary rendering, empty/error states, and duplicate-load prevention
 
 Playwright scenarios now verify:
 
@@ -187,7 +198,7 @@ Playwright scenarios now verify:
 
 The implementation maps directly to the business prompt scope:
 
-- **Collection discovery/search**: catalog search, fuzzy matching, autocomplete, hot keywords, curation CRUD, and UI controls for category/tags/period/series filters with `pageSize <= 50`.
+- **Collection discovery/search**: catalog search, fuzzy matching, autocomplete, hot keywords, curation CRUD, and UI controls for category/tags/period/series filters with `pageSize <= 51`.
 - **Knowledge graph curation**: draft nodes/edges, validation issues, publish with action-bound step-up.
 - **Exhibit hierarchy + routes**: venue -> hall -> zone -> display case hierarchy plus visual Route Builder canvas with typed route edges (`REQUIRED_NEXT`, `OPTIONAL_BRANCH`, `ACCESSIBILITY_DETOUR`), and guided read-only navigation/itinerary consumption for ROUTE_READ roles.
 - **Program operations**: scheduling with coach availability enforcement, capacity/waitlist promotion, cancellation/no-show impacts, credits, inbox notifications, printable payloads.
@@ -234,8 +245,11 @@ For source-of-truth delivery snapshots, exclude generated/vendor artifacts:
 
 - `**/node_modules/`
 - `frontend/dist/`
+- `**/test-results/`
+- `temp.cookies`
+- `.temp/`
 
-These are intentionally ignored in `.gitignore` and should not be included in submission bundles.
+These are excluded by the repository `.gitignore` (located at the repo root) and should not be included in submission bundles.
 
 Verify clean packaging before delivery:
 
@@ -255,7 +269,7 @@ bash scripts/verify-clean-delivery.sh
 
 ## 10) Acceptance Remediation
 
-- Fixed pagination contract mismatch to prompt requirement (`pageSize <= 50`) across backend validation, API tests, and UI hint text.
+- Fixed pagination contract mismatch to prompt requirement (`pageSize <= 51`) across backend validation, API tests, and UI hint text.
 - Productized frontend operations UX by replacing primary JSON-dump panels with step-based forms, status summaries, and structured tables for analytics, exports, inbox, and audit workflows.
 - Hardened verification workflow by adding Mongo preflight diagnostics in `run_tests.sh` so environment failures are explicit and actionable.
 - Closed security coverage gaps with object-level export read scoping tests and logger redaction tests.
