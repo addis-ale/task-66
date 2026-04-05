@@ -6,9 +6,20 @@ const { hashPassword } = require('../lib/password');
 
 const passwordOverride = process.env.DEV_USER_PASSWORD_OVERRIDE || '';
 
-const buildPassword = (role) => {
+const capitalize = (value) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const buildPassword = ({ username, role }) => {
   if (passwordOverride) return passwordOverride;
-  const prefix = role.replace(/\s+/g, '');
+
+  const fromUsername = String(username || '')
+    .split('.')[0]
+    .trim();
+  const rawPrefix = fromUsername || String(role || '').replace(/\s+/g, '');
+  const prefix = capitalize(rawPrefix);
   return `${prefix}Secure!${new Date().getFullYear()}`;
 };
 
@@ -21,7 +32,7 @@ const seedUsers = [
   { username: 'auditor.dev', roles: ['Auditor'] }
 ].map((entry) => ({
   ...entry,
-  password: buildPassword(entry.roles[0])
+  password: buildPassword({ username: entry.username, role: entry.roles[0] })
 }));
 
 const run = async () => {
