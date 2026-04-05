@@ -93,13 +93,24 @@ router.post('/metrics', requirePermission('ANALYTICS_METRIC_MANAGE'), async (req
   const dimensions = Array.isArray(req.body.dimensions) ? req.body.dimensions : [];
   const groupBy = req.body.groupBy || null;
 
+  // Normalize dimensions properly
+  const normalizedDimensions = dimensions.map(d => {
+    if (typeof d === 'string') {
+      return { key: d, type: 'STRING' };
+    }
+    return {
+      key: d.key || d,
+      type: d.type || 'STRING'
+    };
+  });
+
   const metric = await MetricDefinition.create({
     key,
     name,
     description: description || '',
     dataset,
     aggregation,
-    dimensions: dimensions.map(d => ({ key: d.key || d, type: d.type || 'STRING' })),
+    dimensions: normalizedDimensions,
     group_by: groupBy,
     filter_template: req.body.filterTemplate || {},
     active: true

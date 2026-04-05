@@ -7,7 +7,10 @@ const metricDefinitionSchema = new Schema(
     description: { type: String, default: '' },
     dataset: { type: String, required: true },
     aggregation: { type: String, required: true },
-    dimensions: { type: [{ key: String, type: String }], default: [] },
+    dimensions: [{ 
+      key: { type: String, required: true }, 
+      type: { type: String, required: true, default: 'STRING' } 
+    }],
     group_by: { type: String, default: null },
     filter_template: { type: Schema.Types.Mixed, default: {} },
     active: { type: Boolean, default: true }

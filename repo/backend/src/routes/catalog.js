@@ -62,6 +62,7 @@ const levenshteinDistance = (left, right) => {
 };
 
 const roleScopeFromRequest = (req) => {
+  if (!req.auth) return 'ANON';
   const roles = req.auth?.roles || [];
   return [...roles].sort().join('|') || 'NONE';
 };
@@ -309,7 +310,7 @@ router.get('/search', async (req, res) => {
   return res.status(200).json(payload);
 });
 
-router.get('/autocomplete', requireAuth, requirePermission('CATALOG_READ'), async (req, res) => {
+router.get('/autocomplete', async (req, res) => {
   const q = String(req.query.q || '').trim();
   const limit = Number(req.query.limit || 8);
 

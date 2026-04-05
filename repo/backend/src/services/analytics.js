@@ -23,8 +23,8 @@ const countWeeklyBookings = async () => {
 
   return {
     metricKey: 'weekly_bookings',
-    current,
-    previous,
+    current: current || 0,
+    previous: previous || 0,
     period: {
       currentWeekStart: currentWeekStart.toISO(),
       previousWeekStart: previousWeekStart.toISO()
