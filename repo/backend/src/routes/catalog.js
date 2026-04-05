@@ -370,7 +370,7 @@ router.get('/autocomplete', requireAuth, requirePermission('CATALOG_READ'), asyn
   return res.status(200).json({ data: suggestions });
 });
 
-router.get('/hot-keywords', async (req, res) => {
+router.get('/hot-keywords', requireAuth, requirePermission('CATALOG_MANAGE'), async (req, res) => {
   const now = new Date();
   const items = await HotKeyword.find({
     status: 'ACTIVE',
