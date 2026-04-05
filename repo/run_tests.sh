@@ -7,7 +7,7 @@ cd "$ROOT_DIR"
 UNIT_STATUS=0
 API_STATUS=0
 BACKEND_STATUS=0
-API_PORT="${TEST_API_PORT:-18080}"
+API_PORT="${TEST_API_PORT:-28080}"
 API_BASE_URL="http://localhost:${API_PORT}/api/v1"
 TEST_MONGO_URI="mongodb://museum_user:museum_pass@localhost:27017/museum_ops?authSource=admin"
 BACKEND_LOG=".test-backend.log"
@@ -20,6 +20,14 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+# Cleanup any lingering backend processes
+echo "==> Cleaning up port 28080 (if needed)"
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+  powershell.exe -Command "Get-NetTCPConnection -LocalPort 28080 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue }"
+else
+  fuser -k 28080/tcp > /dev/null 2>&1 || true
+fi
 
 echo "==> Installing backend test dependencies (if needed)"
 cd backend && npm install --no-audit --no-fund >/dev/null 2>&1 && cd .. || {

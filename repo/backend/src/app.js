@@ -165,6 +165,7 @@ app.use((error, req, res, next) => {
     return sendError(res, req, 403, 'IMMUTABLE_RESOURCE', error.message);
   }
 
+  console.error('[CRITICAL] Global Error Handler:', error);
   logError('request_failure', {
     requestId: req.requestId,
     route: req.route?.path || req.path,

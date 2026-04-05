@@ -1795,7 +1795,7 @@ test('audit endpoint authz, filters, pagination, and safe payload; anomaly inbox
     csrfToken: admin.csrfToken,
     body: {
       ruleKey: `bookings_drop_wow_${suffix}`,
-      metricKey: 'weekly_bookings',
+      metricKey: `weekly_bookings_${suffix}`,
       thresholdPercent: -100,
       minBaselineCount: 1
     }
@@ -1809,7 +1809,7 @@ test('audit endpoint authz, filters, pagination, and safe payload; anomaly inbox
     csrfToken: admin.csrfToken,
     body: {
       name: `Anomaly Dash ${suffix}`,
-      tiles: [{ metric: 'weekly_bookings' }],
+      tiles: [{ metric: `weekly_bookings_${suffix}` }],
       anomalyRules: [rule.json.data.ruleKey]
     }
   });
