@@ -205,7 +205,7 @@ const scoreCatalogItem = (queryText, item) => {
   return Number(bestScore.toFixed(2));
 };
 
-router.get('/search', requireAuth, requirePermission('CATALOG_READ'), async (req, res) => {
+router.get('/search', async (req, res) => {
   const page = parsePage(req.query.page);
   const pageSizeRaw = Number(req.query.pageSize || 20);
   const pageSize = clampPageSize(req.query.pageSize);

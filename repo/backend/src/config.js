@@ -75,8 +75,8 @@ module.exports = {
     idleTtlSeconds: Number(process.env.SESSION_IDLE_TTL_SECONDS || 1800),
     absoluteTtlSeconds: Number(process.env.SESSION_ABSOLUTE_TTL_SECONDS || 43200),
     cookieName: process.env.SESSION_COOKIE_NAME || 'museum_sid',
-    secure: toBoolean(process.env.SESSION_COOKIE_SECURE, true),
-    sameSite: process.env.SESSION_COOKIE_SAME_SITE || 'strict'
+    secure: toBoolean(process.env.SESSION_COOKIE_SECURE, false),
+    sameSite: process.env.SESSION_COOKIE_SAME_SITE || 'lax'
   },
   development: {
     enableDevSeed:

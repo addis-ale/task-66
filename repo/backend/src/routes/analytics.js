@@ -10,6 +10,7 @@ const ReportRun = require('../models/report-run');
 const User = require('../models/user');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/rbac');
+const { requireCsrf } = require('../middleware/auth');
 const { sendError } = require('../lib/http');
 const { countWeeklyBookings, evaluateWowDropRule } = require('../services/analytics');
 const { runReportDefinition } = require('../services/reports');
@@ -79,6 +80,7 @@ const dispatchAnomalyInbox = async ({ dashboard, rule, metricResult, evaluation 
 };
 
 router.use(requireAuth);
+router.use(requireCsrf);
 
 router.post('/metrics', requirePermission('ANALYTICS_METRIC_MANAGE'), async (req, res) => {
   const { key, name, description, dataset, aggregation } = req.body || {};
@@ -97,7 +99,7 @@ router.post('/metrics', requirePermission('ANALYTICS_METRIC_MANAGE'), async (req
     description: description || '',
     dataset,
     aggregation,
-    dimensions,
+    dimensions: dimensions.map(d => ({ key: d.key || d, type: d.type || 'STRING' })),
     group_by: groupBy,
     filter_template: req.body.filterTemplate || {},
     active: true
@@ -197,6 +199,7 @@ const resolveModel = (dataset) => {
   const map = {
     registrations: Registration,
     program_registrations: Registration,
+    participants: require('../models/participant'),
     sessions: ProgramSession,
     staffing_jobs: Job
   };
@@ -346,7 +349,7 @@ router.get('/dashboards/:dashboardId', requirePermission('ANALYTICS_DASHBOARD_RE
     const result = computed.result;
     const evaluation = evaluateWowDropRule({
       current: result.current,
-      previous: result.previous,
+      previous: result.previous || 0,
       thresholdPercent: rule.threshold_percent,
       minBaselineCount: rule.min_baseline_count
     });

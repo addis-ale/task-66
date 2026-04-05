@@ -1,21 +1,4 @@
 {
-  "info": {
-    "id": "ses_2bedc29f3ffeWftpoUksMBOcz6",
-    "slug": "mighty-tiger",
-    "projectID": "3f4df01b4433fd17122cbcd93365031c1b4bfc8f",
-    "directory": "C:\\Users\\PC\\Downloads\\Telegram Desktop\\TASK-66\\TASK-66\\repo",
-    "title": "Full-pass blockers for museum frontend delivery",
-    "version": "1.3.8",
-    "summary": {
-      "additions": 1160,
-      "deletions": 262,
-      "files": 23
-    },
-    "time": {
-      "created": 1774914360844,
-      "updated": 1774954170469
-    }
-  },
   "messages": [
     {
       "info": {
@@ -7532,5 +7515,50 @@
         }
       ]
     }
-  ]
+  ],
+  "meta": {
+    "session_meta": {
+      "id": "ses_2bedc29f3ffeWftpoUksMBOcz6",
+      "timestamp": 1774914360844,
+      "cwd": "C:\\Users\\PC\\Downloads\\Telegram Desktop\\TASK-66\\TASK-66\\repo",
+      "originator": "user",
+      "cli_version": "1.0.0",
+      "source": "cli",
+      "model_provider": "openai",
+      "base_instructions": "You are Cascade, a powerful agentic AI coding assistant.",
+      "git": {
+        "branch": "main",
+        "commit": "abc123",
+        "remote": "origin",
+        "dirty": true
+      }
+    },
+    "turn_contexts": [
+      {
+        "turn_id": "turn_1",
+        "message_index": 0,
+        "role": "user",
+        "timestamp": 1774914360898,
+        "tool_calls": [],
+        "summary": "User requested comprehensive README and Docker fixes"
+      }
+    ]
+  },
+  "info": {
+    "id": "ses_2bedc29f3ffeWftpoUksMBOcz6",
+    "slug": "mighty-tiger",
+    "projectID": "3f4df01b4433fd17122cbcd93365031c1b4bfc8f",
+    "directory": "C:\\Users\\PC\\Downloads\\Telegram Desktop\\TASK-66\\TASK-66\\repo",
+    "title": "Full-pass blockers for museum frontend delivery",
+    "version": "1.3.8",
+    "summary": {
+      "additions": 1160,
+      "deletions": 262,
+      "files": 23
+    },
+    "time": {
+      "created": 1774914360844,
+      "updated": 1774954170469
+    }
+  }
 }
