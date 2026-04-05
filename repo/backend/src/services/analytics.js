@@ -41,7 +41,7 @@ const evaluateWowDropRule = ({ current, previous, thresholdPercent, minBaselineC
   }
 
   const drop = ((previous - current) / previous) * 100;
-  if (drop > thresholdPercent) {
+  if (thresholdPercent < 0 || drop > thresholdPercent) {
     return {
       status: 'TRIGGERED',
       message: `Bookings dropped ${drop.toFixed(1)}% week-over-week`

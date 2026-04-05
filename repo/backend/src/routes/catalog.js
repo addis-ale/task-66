@@ -5,7 +5,7 @@ const HotKeyword = require('../models/hot-keyword');
 const SearchCache = require('../models/search-cache');
 const config = require('../config');
 const { sendError } = require('../lib/http');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, optionalAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/rbac');
 
 const router = express.Router();
@@ -206,7 +206,7 @@ const scoreCatalogItem = (queryText, item) => {
   return Number(bestScore.toFixed(2));
 };
 
-router.get('/search', async (req, res) => {
+router.get('/search', optionalAuth, async (req, res) => {
   const page = parsePage(req.query.page);
   const pageSizeRaw = Number(req.query.pageSize || 20);
   const pageSize = clampPageSize(req.query.pageSize);

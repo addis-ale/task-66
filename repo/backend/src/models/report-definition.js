@@ -6,7 +6,10 @@ const reportDefinitionSchema = new Schema(
     name: { type: String, required: true },
     dataset: { type: String, required: true },
     format: { type: String, enum: ['CSV', 'JSON'], required: true },
-    dimensions: { type: [{ key: String, type: String }], default: [] },
+    dimensions: {
+      type: [{ _id: false, key: { type: String }, type: { type: String, default: 'STRING' } }],
+      default: []
+    },
     group_by: { type: String, default: null },
     filter_template: { type: Schema.Types.Mixed, default: {} },
     schedule: {

@@ -1,4 +1,4 @@
-const { randomUUID } = require('crypto');
+const crypto = require('crypto');
 const express = require('express');
 const MetricDefinition = require('../models/metric-definition');
 const DimensionDefinition = require('../models/dimension-definition');
@@ -15,6 +15,7 @@ const { sendError } = require('../lib/http');
 const { countWeeklyBookings, evaluateWowDropRule } = require('../services/analytics');
 const { runReportDefinition } = require('../services/reports');
 const { createInboxMessage } = require('../services/inbox');
+const { logError } = require('../lib/logger');
 const config = require('../config');
 
 const router = express.Router();
@@ -26,7 +27,7 @@ const dispatchAnomalyInbox = async ({ dashboard, rule, metricResult, evaluation 
     return;
   }
 
-  const periodKey = metricResult?.period?.currentWeekStart || new Date().toISOString().slice(0, 10);
+  const periodKey = metricResult?.period?.currentWeekStart || metricResult?.currentWeekStart || new Date().toISOString().slice(0, 10);
   const recipients = new Set([String(dashboard.created_by)]);
 
   const privileged = await User.find({ roles: { $in: ['Administrator', 'Auditor'] }, status: 'ACTIVE' }, { _id: 1 }).lean();
@@ -185,7 +186,7 @@ router.post('/dashboards', requirePermission('ANALYTICS_DASHBOARD_MANAGE'), asyn
     ]);
   }
 
-  const dashboardId = `dash_${randomUUID().replace(/-/g, '').slice(0, 8)}`;
+  const dashboardId = `dash_${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
   const dashboard = await DashboardDefinition.create({
     dashboard_id: dashboardId,
     name,
@@ -210,7 +211,7 @@ const resolveModel = (dataset) => {
   const map = {
     registrations: Registration,
     program_registrations: Registration,
-    participants: require('../models/participant'),
+    participants: require('../models/participant-profile'),
     sessions: ProgramSession,
     staffing_jobs: Job
   };
@@ -313,11 +314,24 @@ const computeMetricValue = async (metricKey) => {
   }
 
   if (metricDef.aggregation === 'count') {
-    const current = await Model.countDocuments(filter).catch(() => 0);
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const previousFilter = { ...filter, created_at: { $lt: weekAgo } };
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    
+    const currentFilter = { ...filter, created_at: { $gte: weekAgo } };
+    const current = await Model.countDocuments(currentFilter).catch(() => 0);
+    
+    const previousFilter = { ...filter, created_at: { $gte: twoWeeksAgo, $lt: weekAgo } };
     const previous = await Model.countDocuments(previousFilter).catch(() => 0);
-    return { value: current, result: { current, previous } };
+    
+    return { 
+      value: current, 
+      result: { current, previous },
+      period: {
+        currentWeekStart: weekAgo.toISOString(),
+        previousWeekStart: twoWeeksAgo.toISOString()
+      }
+    };
   }
 
   const pipeline = await buildGroupPipeline(metricDef, filter);
@@ -371,12 +385,16 @@ router.get('/dashboards/:dashboardId', requirePermission('ANALYTICS_DASHBOARD_RE
       message: evaluation.message
     });
 
-    await dispatchAnomalyInbox({
-      dashboard,
-      rule,
-      metricResult: result,
-      evaluation
-    });
+    try {
+      await dispatchAnomalyInbox({
+        dashboard,
+        rule,
+        metricResult: result,
+        evaluation
+      });
+    } catch (error) {
+      logError('analytics', { message: 'Failed to dispatch anomaly inbox', error: error.message });
+    }
   }
 
   return res.status(200).json({
@@ -390,44 +408,51 @@ router.get('/dashboards/:dashboardId', requirePermission('ANALYTICS_DASHBOARD_RE
 
 router.post('/reports', requirePermission('ANALYTICS_REPORT_MANAGE'), async (req, res) => {
   const { name, dataset, format, schedule } = req.body || {};
-  if (!name || !dataset || !validReportFormats.includes(format)) {
-    return sendError(res, req, 400, 'VALIDATION_ERROR', 'Request validation failed', [
-      { field: 'name/dataset/format', issue: 'invalid report definition' }
-    ]);
+  if (!name || !dataset || !format) {
+    return sendError(res, req, 400, 'VALIDATION_ERROR', 'Name, dataset, and format are required');
+  }
+
+  if (!validReportFormats.includes(format)) {
+    return sendError(res, req, 400, 'VALIDATION_ERROR', 'Invalid report format');
   }
 
   const reportDimensions = Array.isArray(req.body.dimensions) ? req.body.dimensions : [];
   const reportGroupBy = req.body.groupBy || null;
   const reportFilterTemplate = req.body.filterTemplate || {};
 
-  const reportId = `rep_${randomUUID().replace(/-/g, '').slice(0, 8)}`;
-  const definition = await ReportDefinition.create({
-    report_id: reportId,
-    name,
-    dataset,
-    format,
-    dimensions: reportDimensions,
-    group_by: reportGroupBy,
-    filter_template: reportFilterTemplate,
-    schedule: {
-      time: schedule?.time || config.reporting.scheduleTime,
-      timezone: schedule?.timezone || config.reporting.scheduleTimezone
-    },
-    created_by: req.auth.userId,
-    active: true
-  });
+  const reportId = `rep_${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
+  try {
+    const definition = await ReportDefinition.create({
+      report_id: reportId,
+      name,
+      dataset,
+      format,
+      dimensions: reportDimensions,
+      group_by: reportGroupBy,
+      filter_template: reportFilterTemplate,
+      schedule: {
+        time: schedule?.time || config.reporting.scheduleTime,
+        timezone: schedule?.timezone || config.reporting.scheduleTimezone
+      },
+      created_by: req.auth.userId,
+      active: true
+    });
 
-  return res.status(201).json({
-    data: {
-      reportId: definition.report_id,
-      name: definition.name,
-      dataset: definition.dataset,
-      format: definition.format,
-      dimensions: definition.dimensions || [],
-      groupBy: definition.group_by || null,
-      schedule: definition.schedule
-    }
-  });
+    return res.status(201).json({
+      data: {
+        reportId: definition.report_id,
+        name: definition.name,
+        dataset: definition.dataset,
+        format: definition.format,
+        dimensions: definition.dimensions || [],
+        groupBy: definition.group_by || null,
+        schedule: definition.schedule
+      }
+    });
+  } catch (error) {
+    logError('analytics', { message: 'Failed to create report definition', error: error.message, stack: error.stack });
+    throw error;
+  }
 });
 
 router.post('/reports/:reportId/run', requirePermission('ANALYTICS_REPORT_MANAGE'), async (req, res) => {
