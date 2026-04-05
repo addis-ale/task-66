@@ -38,7 +38,7 @@ services:
       PORT: 8080
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173,http://localhost:8888}
       ENABLE_SWAGGER: ${ENABLE_SWAGGER:-true}
-      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET to a strong random value}
+      SESSION_SECRET: ${SESSION_SECRET:-XDw>VtBh3Rv7c]Iyj{mPMDo*/ZQDo8*D}
       SESSION_COOKIE_NAME: museum_sid
       SESSION_COOKIE_SAME_SITE: strict
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
