@@ -13,6 +13,7 @@ const {
   exportRowsToArtifact
 } = require('../services/exports');
 const { logAuditEvent } = require('../services/events');
+const { logError } = require('../lib/logger');
 
 const router = express.Router();
 
@@ -84,7 +85,7 @@ router.post('/', requirePermission('EXPORT_CREATE'), requireStepUp(STEP_UP_ACTIO
 
   setImmediate(() => {
     processExportJob(exportJobId, req.auth.roles).catch((error) => {
-      console.error('Export processing failed:', error);
+      logError('exports', { message: 'Export processing failed', error });
     });
   });
 

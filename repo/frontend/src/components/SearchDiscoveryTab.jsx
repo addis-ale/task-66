@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HOT_KEYWORD_DEFAULTS, SEARCH_DEFAULTS } from '../constants/defaults';
 import { CATALOG_MAX_PAGE_SIZE } from '../constants/pagination';
 import { useFormState } from '../hooks/useFormState';
 import { buildCatalogSearchQuery, combineCatalogKeywordText } from '../lib/search-query';
 import { clampPageSize, parsePositiveInt } from '../validators/forms';
+
+const isQueuedResponse = (response) =>
+  response && response.data && response.data.queued === true;
 
 const searchSorts = [
   { value: 'relevance:desc', label: 'Relevance (high to low)' },
@@ -48,6 +51,17 @@ function SearchDiscoveryTab({ apiRequest, csrfToken, canCurateKeywords, setMessa
   const page = parsePositiveInt(searchForm.page, 1);
 
   const setPendingState = (key, value) => setPending((prev) => ({ ...prev, [key]: value }));
+
+  const autocompleteTimerRef = useRef(null);
+  const loadAutocompleteRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (autocompleteTimerRef.current) {
+        clearTimeout(autocompleteTimerRef.current);
+      }
+    };
+  }, []);
 
   const runSearch = async (nextPage) => {
     if (pending.search) {
@@ -130,6 +144,22 @@ function SearchDiscoveryTab({ apiRequest, csrfToken, canCurateKeywords, setMessa
     }
   };
 
+  loadAutocompleteRef.current = loadAutocomplete;
+
+  const triggerDebouncedAutocomplete = (value) => {
+    if (autocompleteTimerRef.current) {
+      clearTimeout(autocompleteTimerRef.current);
+    }
+    if (!value || value.length < 2) {
+      return;
+    }
+    autocompleteTimerRef.current = setTimeout(() => {
+      if (loadAutocompleteRef.current) {
+        loadAutocompleteRef.current();
+      }
+    }, 350);
+  };
+
   const loadHotKeywords = async () => {
     if (pending.keywordsLoad) {
       return;
@@ -165,8 +195,9 @@ function SearchDiscoveryTab({ apiRequest, csrfToken, canCurateKeywords, setMessa
     };
 
     try {
+      let response;
       if (editingKeywordId) {
-        await apiRequest({
+        response = await apiRequest({
           path: `/catalog/hot-keywords/${editingKeywordId}`,
           method: 'PATCH',
           csrfToken,
@@ -177,14 +208,24 @@ function SearchDiscoveryTab({ apiRequest, csrfToken, canCurateKeywords, setMessa
             status: 'ACTIVE'
           }
         });
-        setMessage('Hot keyword updated');
+        if (isQueuedResponse(response)) {
+          setMessage('Keyword update queued offline. It will sync when back online.');
+        } else {
+          setMessage('Hot keyword updated');
+        }
       } else {
-        await apiRequest({ path: '/catalog/hot-keywords', method: 'POST', csrfToken, body: payload });
-        setMessage('Hot keyword created');
+        response = await apiRequest({ path: '/catalog/hot-keywords', method: 'POST', csrfToken, body: payload });
+        if (isQueuedResponse(response)) {
+          setMessage('Keyword creation queued offline. It will sync when back online.');
+        } else {
+          setMessage('Hot keyword created');
+        }
       }
       setKeywordForm(HOT_KEYWORD_DEFAULTS);
       setEditingKeywordId('');
-      await loadHotKeywords();
+      if (!isQueuedResponse(response)) {
+        await loadHotKeywords();
+      }
     } catch (err) {
       setError(err.message || 'Failed to save keyword');
     } finally {
@@ -201,13 +242,17 @@ function SearchDiscoveryTab({ apiRequest, csrfToken, canCurateKeywords, setMessa
     setMessage('');
 
     try {
-      await apiRequest({ path: `/catalog/hot-keywords/${keywordId}`, method: 'DELETE', csrfToken });
-      setMessage('Hot keyword retired');
-      if (keywordId === editingKeywordId) {
-        setEditingKeywordId('');
-        setKeywordForm(HOT_KEYWORD_DEFAULTS);
+      const response = await apiRequest({ path: `/catalog/hot-keywords/${keywordId}`, method: 'DELETE', csrfToken });
+      if (isQueuedResponse(response)) {
+        setMessage('Keyword retirement queued offline. It will sync when back online.');
+      } else {
+        setMessage('Hot keyword retired');
+        if (keywordId === editingKeywordId) {
+          setEditingKeywordId('');
+          setKeywordForm(HOT_KEYWORD_DEFAULTS);
+        }
+        await loadHotKeywords();
       }
-      await loadHotKeywords();
     } catch (err) {
       setError(err.message || 'Failed to retire keyword');
     } finally {
@@ -233,7 +278,7 @@ function SearchDiscoveryTab({ apiRequest, csrfToken, canCurateKeywords, setMessa
       <section className="route-block">
         <h3>Query Fields</h3>
         <div className="row wrap">
-          <input value={searchForm.title} onChange={(e) => updateSearch('title', e.target.value)} placeholder="title" />
+          <input value={searchForm.title} onChange={(e) => { updateSearch('title', e.target.value); triggerDebouncedAutocomplete(e.target.value); }} placeholder="title" />
           <input value={searchForm.catalogNumber} onChange={(e) => updateSearch('catalogNumber', e.target.value)} placeholder="catalog number" />
           <input value={searchForm.artist} onChange={(e) => updateSearch('artist', e.target.value)} placeholder="artist" />
           <input value={searchForm.series} onChange={(e) => updateSearch('series', e.target.value)} placeholder="series" />

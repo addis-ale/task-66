@@ -7,8 +7,12 @@ export const getInitialLoginForm = () => {
     return { username: '', password: '' };
   }
 
-  return {
-    username: import.meta?.env?.VITE_DEV_LOGIN_USERNAME || 'admin.dev',
-    password: import.meta?.env?.VITE_DEV_LOGIN_PASSWORD || 'AdminSecure!2026'
-  };
+  const username = import.meta?.env?.VITE_DEV_LOGIN_USERNAME || '';
+  const password = import.meta?.env?.VITE_DEV_LOGIN_PASSWORD || '';
+
+  if (!username || !password) {
+    return { username: '', password: '' };
+  }
+
+  return { username, password };
 };

@@ -144,3 +144,43 @@ test('tab role access allows authorized role and blocks forbidden role', async (
   assert.equal(tabs.hasTabAccess(['Program Coordinator'], 'programs'), true);
   assert.equal(tabs.hasTabAccess(['Employer'], 'audit'), false);
 });
+
+test('service worker sw.js file exists and defines cacheable API patterns', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const swPath = path.join(import.meta.dirname, '../../public/sw.js');
+  const content = fs.readFileSync(swPath, 'utf8');
+
+  assert.ok(content.includes('museum-app-shell-v1'), 'defines app shell cache name');
+  assert.ok(content.includes('museum-api-read-v1'), 'defines API read cache name');
+  assert.ok(content.includes('/api/v1/catalog/search'), 'caches catalog search');
+  assert.ok(content.includes('/api/v1/catalog/autocomplete'), 'caches autocomplete');
+  assert.ok(content.includes('/api/v1/catalog/hot-keywords'), 'caches hot keywords');
+  assert.ok(content.includes("request.method !== 'GET'"), 'only caches GET requests');
+  assert.ok(content.includes('OFFLINE'), 'provides offline fallback response');
+  assert.ok(content.includes('caches.match(request)'), 'falls back to cache on network failure');
+  assert.ok(content.includes('self.skipWaiting()'), 'activates immediately on install');
+  assert.ok(content.includes('self.clients.claim()'), 'claims clients on activate');
+});
+
+test('API GET cache serves stale-on-error and returns fresh on success', async () => {
+  setupBrowserLikeGlobals();
+  const api = await importFresh('../../src/lib/api.js');
+
+  api.setApiAuthContext({ userId: 'user-cache', csrfToken: '', stepUpToken: '' });
+
+  globalThis.fetch = async () => jsonResponse({ data: { items: ['fresh-item'] } });
+  const fresh = await api.apiRequest({ path: '/catalog/search', method: 'GET', query: { q: 'bird' } });
+  assert.equal(fresh._meta.fromCache, false);
+  assert.deepEqual(fresh.data.items, ['fresh-item']);
+
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  const stale = await api.apiRequest({ path: '/catalog/search', method: 'GET', query: { q: 'bird' } });
+  assert.equal(stale._meta.fromCache, true);
+  assert.deepEqual(stale.data.items, ['fresh-item']);
+
+  globalThis.fetch = async () => jsonResponse({ data: { items: ['updated-item'] } });
+  const updated = await api.apiRequest({ path: '/catalog/search', method: 'GET', query: { q: 'bird' } });
+  assert.equal(updated._meta.fromCache, false);
+  assert.deepEqual(updated.data.items, ['updated-item']);
+});

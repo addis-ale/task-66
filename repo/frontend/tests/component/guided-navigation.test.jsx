@@ -57,10 +57,10 @@ describe('GuidedNavigationTab', () => {
 
     expect(screen.getByText(/strictSequence: true/)).toBeTruthy();
     expect(screen.getByText(/pace: 3 mph/)).toBeTruthy();
-    expect(screen.getByText(/REQUIRED_NEXT/)).toBeTruthy();
-    expect(screen.getByText(/OPTIONAL_BRANCH/)).toBeTruthy();
-    expect(screen.getByText(/itn_1/)).toBeTruthy();
-    expect(screen.getByText(/12 min/)).toBeTruthy();
+    expect(screen.getAllByText(/REQUIRED_NEXT/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/OPTIONAL_BRANCH/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/itn_1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/12 min/).length).toBeGreaterThan(0);
     expect(props.setMessage).toHaveBeenCalledWith('Loaded guided navigation for route rte_abc123');
   });
 
@@ -125,6 +125,56 @@ describe('GuidedNavigationTab', () => {
       expect(screen.getByText('Empty Route')).toBeTruthy();
     });
     expect(screen.getByText('No generated itineraries yet for this route.')).toBeTruthy();
+  });
+
+  it('discovers available routes and allows selection from dropdown', async () => {
+    const user = userEvent.setup();
+    const apiRequest = vi.fn(async (request) => {
+      if (request.path === '/routes' && request.method === 'GET') {
+        return {
+          data: [
+            { routeId: 'rte_disc_1', name: 'Main Exhibit Route' },
+            { routeId: 'rte_disc_2', name: 'Accessibility Route' }
+          ]
+        };
+      }
+      if (request.path === '/routes/rte_disc_2' && request.method === 'GET') {
+        return {
+          data: {
+            routeId: 'rte_disc_2',
+            name: 'Accessibility Route',
+            strictSequence: false,
+            defaultPaceMph: 2,
+            segments: [
+              { id: 'seg_a1', segmentType: 'ACCESSIBILITY_DETOUR', fromCaseId: 'case_a', toCaseId: 'case_b', distanceMeters: 80, dwellMinutes: 6 }
+            ]
+          }
+        };
+      }
+      if (request.path === '/routes/rte_disc_2/itineraries' && request.method === 'GET') {
+        return { data: [] };
+      }
+      return { data: {} };
+    });
+
+    const props = createBaseProps(apiRequest);
+    render(<GuidedNavigationTab {...props} />);
+
+    await user.click(screen.getByRole('button', { name: 'Discover Routes' }));
+    await waitFor(() => {
+      expect(props.setMessage).toHaveBeenCalledWith('Found 2 available route(s)');
+    });
+
+    const routeSelect = screen.getByRole('combobox');
+    expect(routeSelect).toBeTruthy();
+    await user.selectOptions(routeSelect, 'rte_disc_2');
+
+    await user.click(screen.getByRole('button', { name: 'Load Route' }));
+    await waitFor(() => {
+      expect(screen.getAllByText('Accessibility Route').length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText(/ACCESSIBILITY_DETOUR/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/pace: 2 mph/)).toBeTruthy();
   });
 
   it('prevents duplicate loading while request is pending', async () => {

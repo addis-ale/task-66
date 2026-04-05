@@ -5,6 +5,8 @@ const isQueued = (response) => response?.data?.queued === true;
 
 const defaultAnalyticsForm = {
   metricKey: 'weekly_bookings',
+  metricDimensions: 'date:DATE,program:STRING,venue:STRING',
+  metricGroupBy: 'date',
   ruleKey: 'bookings_drop_wow_30',
   dashboardName: 'Operations Dashboard',
   reportName: 'Daily Program Reconciliation',
@@ -41,6 +43,14 @@ const formatDateTime = (value) => {
   return parsed.toLocaleString();
 };
 
+const parseDimensions = (text) => {
+  if (!text || !text.trim()) return [];
+  return text.split(',').map((entry) => {
+    const [key, type] = entry.trim().split(':');
+    return { key: (key || '').trim(), type: (type || 'STRING').trim().toUpperCase() };
+  }).filter((d) => d.key);
+};
+
 function AnalyticsTab({ apiRequest, csrfToken, setMessage, setError }) {
   const [analyticsForm, updateAnalytics] = useFormState(defaultAnalyticsForm);
   const [analyticsState, setAnalyticsState] = useState(defaultAnalyticsState);
@@ -62,6 +72,7 @@ function AnalyticsTab({ apiRequest, csrfToken, setMessage, setError }) {
 
   const saveMetricAndRule = () =>
     runAction(async () => {
+      const dimensions = parseDimensions(analyticsForm.metricDimensions);
       const metric = await apiRequest({
         path: '/analytics/metrics',
         method: 'POST',
@@ -70,7 +81,9 @@ function AnalyticsTab({ apiRequest, csrfToken, setMessage, setError }) {
           key: analyticsForm.metricKey,
           name: 'Weekly Bookings',
           dataset: 'registrations',
-          aggregation: 'count'
+          aggregation: 'count',
+          dimensions,
+          groupBy: analyticsForm.metricGroupBy || undefined
         }
       });
       if (isQueued(metric)) {
@@ -124,6 +137,7 @@ function AnalyticsTab({ apiRequest, csrfToken, setMessage, setError }) {
 
   const createReportDefinition = () =>
     runAction(async () => {
+      const reportDimensions = parseDimensions(analyticsForm.metricDimensions);
       const report = await apiRequest({
         path: '/analytics/reports',
         method: 'POST',
@@ -132,6 +146,8 @@ function AnalyticsTab({ apiRequest, csrfToken, setMessage, setError }) {
           name: analyticsForm.reportName,
           dataset: analyticsForm.reportDataset,
           format: analyticsForm.reportFormat,
+          dimensions: reportDimensions.length > 0 ? reportDimensions : undefined,
+          groupBy: analyticsForm.metricGroupBy || undefined,
           schedule: { time: analyticsForm.reportTime, timezone: analyticsForm.reportTimezone }
         }
       });
@@ -168,13 +184,24 @@ function AnalyticsTab({ apiRequest, csrfToken, setMessage, setError }) {
         <h3>Step 1) Metric and Anomaly Rule</h3>
         <div className="row wrap">
           <input value={analyticsForm.metricKey} onChange={(e) => updateAnalytics('metricKey', e.target.value)} placeholder="metric key" />
+          <input value={analyticsForm.metricDimensions} onChange={(e) => updateAnalytics('metricDimensions', e.target.value)} placeholder="dimensions (key:TYPE,...)" />
+          <input value={analyticsForm.metricGroupBy} onChange={(e) => updateAnalytics('metricGroupBy', e.target.value)} placeholder="group by dimension" />
           <input value={analyticsForm.ruleKey} onChange={(e) => updateAnalytics('ruleKey', e.target.value)} placeholder="anomaly rule key" />
           <button onClick={saveMetricAndRule} disabled={pending}>{pending ? 'Saving...' : 'Save Metric + Rule'}</button>
         </div>
+        <p className="small">Dimension format: <code>key:TYPE</code> comma-separated. Types: DATE, STRING, NUMBER, BOOLEAN.</p>
         <div className="summary-grid">
           <div className="summary-card">
             <p className="small">Metric</p>
             <p>{analyticsState.metric?.key || 'not created'}</p>
+          </div>
+          <div className="summary-card">
+            <p className="small">Dimensions</p>
+            <p>{analyticsState.metric?.dimensions?.length > 0 ? analyticsState.metric.dimensions.map((d) => `${d.key}:${d.type}`).join(', ') : 'none'}</p>
+          </div>
+          <div className="summary-card">
+            <p className="small">Group By</p>
+            <p>{analyticsState.metric?.groupBy || 'none'}</p>
           </div>
           <div className="summary-card">
             <p className="small">Anomaly rule</p>

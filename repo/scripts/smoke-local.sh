@@ -3,7 +3,7 @@ set -euo pipefail
 
 API_BASE_URL="${API_BASE_URL:-http://localhost:8080/api/v1}"
 LOGIN_USER="${SMOKE_USER:-admin.dev}"
-LOGIN_PASS="${SMOKE_PASS:-AdminSecure!2026}"
+LOGIN_PASS="${SMOKE_PASS:?Set SMOKE_PASS env var with the seeded admin password}"
 
 echo "[smoke] API base: ${API_BASE_URL}"
 

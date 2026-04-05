@@ -8,6 +8,7 @@ const Job = require('../models/job');
 const config = require('../config');
 const { isDbReady } = require('../db');
 const { toCsv, writeArtifactAtomic } = require('./reconciliation');
+const { logInfo, logError } = require('../lib/logger');
 const { createInboxMessage } = require('./inbox');
 const { logAuditEvent } = require('./events');
 
@@ -15,11 +16,84 @@ let schedulerIntervalHandle = null;
 
 const retryBackoffMs = (attempt) => (attempt === 1 ? 60 * 1000 : 5 * 60 * 1000);
 
-const buildReportRows = async (definition) => {
-  if (definition.dataset === 'program_registrations') {
-    const rows = await Registration.find({})
-      .sort({ created_at: 1, _id: 1 })
-      .lean();
+const DimensionDefinition = require('../models/dimension-definition');
+
+const resolveReportModel = (dataset) => {
+  const map = {
+    program_registrations: Registration,
+    registrations: Registration,
+    sessions: ProgramSession,
+    staffing_jobs: Job
+  };
+  return map[dataset] || null;
+};
+
+const ALLOWED_FILTER_FIELDS = new Set([
+  'status', 'created_at', 'updated_at', 'participant_id', 'session_id',
+  'program_id', 'coach_id', 'department', 'current_state', 'start_at_utc'
+]);
+const ALLOWED_FILTER_OPERATORS = new Set(['$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin']);
+
+const buildReportFilter = (definition) => {
+  const filter = {};
+  const tpl = definition.filter_template;
+  if (!tpl || typeof tpl !== 'object') return filter;
+
+  for (const [key, value] of Object.entries(tpl)) {
+    if (!ALLOWED_FILTER_FIELDS.has(key)) continue;
+    if (value === undefined || value === null || value === '') continue;
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      const safeOps = {};
+      for (const [op, opVal] of Object.entries(value)) {
+        if (ALLOWED_FILTER_OPERATORS.has(op)) safeOps[op] = opVal;
+      }
+      if (Object.keys(safeOps).length > 0) filter[key] = safeOps;
+    } else {
+      filter[key] = value;
+    }
+  }
+  return filter;
+};
+
+const resolveDimensionField = async (dimensionKey, dataset) => {
+  const dim = await DimensionDefinition.findOne({ key: dimensionKey, dataset, active: true }).lean();
+  return dim ? dim.field : null;
+};
+
+const buildGroupedReportRows = async (definition) => {
+  const Model = resolveReportModel(definition.dataset);
+  if (!Model) throw new Error(`Unsupported dataset: ${definition.dataset}`);
+
+  const filter = buildReportFilter(definition);
+
+  let resolvedGroupField = definition.group_by;
+  if (definition.group_by) {
+    const dimField = await resolveDimensionField(definition.group_by, definition.dataset);
+    if (dimField) resolvedGroupField = dimField;
+  }
+
+  const pipeline = [];
+  if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
+  pipeline.push({
+    $group: {
+      _id: resolvedGroupField ? `$${resolvedGroupField}` : null,
+      count: { $sum: 1 }
+    }
+  });
+  pipeline.push({ $sort: { _id: 1 } });
+
+  const groups = await Model.aggregate(pipeline);
+  return groups.map((g) => ({
+    groupKey: g._id || 'all',
+    count: g.count
+  }));
+};
+
+const buildFlatReportRows = async (definition) => {
+  const filter = buildReportFilter(definition);
+
+  if (definition.dataset === 'program_registrations' || definition.dataset === 'registrations') {
+    const rows = await Registration.find(filter).sort({ created_at: 1, _id: 1 }).lean();
     return rows.map((row) => ({
       registrationId: String(row._id),
       sessionId: String(row.session_id),
@@ -30,9 +104,7 @@ const buildReportRows = async (definition) => {
   }
 
   if (definition.dataset === 'sessions') {
-    const rows = await ProgramSession.find({})
-      .sort({ start_at_utc: 1, _id: 1 })
-      .lean();
+    const rows = await ProgramSession.find(filter).sort({ start_at_utc: 1, _id: 1 }).lean();
     return rows.map((row) => ({
       sessionId: String(row._id),
       programId: String(row.program_id),
@@ -44,9 +116,7 @@ const buildReportRows = async (definition) => {
   }
 
   if (definition.dataset === 'staffing_jobs') {
-    const rows = await Job.find({})
-      .sort({ created_at: 1, _id: 1 })
-      .lean();
+    const rows = await Job.find(filter).sort({ created_at: 1, _id: 1 }).lean();
     return rows.map((row) => ({
       jobId: String(row._id),
       title: row.title,
@@ -57,6 +127,13 @@ const buildReportRows = async (definition) => {
   }
 
   throw new Error(`Unsupported dataset: ${definition.dataset}`);
+};
+
+const buildReportRows = async (definition) => {
+  if (definition.group_by) {
+    return buildGroupedReportRows(definition);
+  }
+  return buildFlatReportRows(definition);
 };
 
 const buildReportContent = (rows, format) => {
@@ -143,7 +220,7 @@ const runReportDefinition = async (definition, triggerType, attempt = 1) => {
       const delayMs = retryBackoffMs(attempt);
       setTimeout(() => {
         runReportDefinition(definition, 'RETRY', attempt + 1).catch((err) => {
-          console.error('Retry report run failed:', err);
+          logError('reports', { message: 'Retry report run failed', error: err });
         });
       }, delayMs);
     }
@@ -182,7 +259,7 @@ const tickScheduler = async () => {
   for (const definition of definitions) {
     if (shouldRunNow(definition, nowUtc)) {
       runReportDefinition(definition, 'SCHEDULED').catch((error) => {
-        console.error('Scheduled report execution failed:', error);
+        logError('reports', { message: 'Scheduled report execution failed', error });
       });
     }
   }
@@ -195,14 +272,14 @@ const startReportScheduler = async () => {
 
   schedulerIntervalHandle = setInterval(() => {
     tickScheduler().catch((error) => {
-      console.error('Report scheduler tick failed:', error);
+      logError('reports', { message: 'Report scheduler tick failed', error });
     });
   }, 60 * 1000);
 
   await tickScheduler().catch((error) => {
-    console.error('Initial report scheduler tick failed:', error);
+    logError('reports', { message: 'Initial report scheduler tick failed', error });
   });
-  console.log('Report scheduler started');
+  logInfo('reports', { message: 'Report scheduler started' });
 };
 
 module.exports = {

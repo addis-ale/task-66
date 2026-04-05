@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { logInfo, logError } = require('./lib/logger');
 
 const state = {
   connected: false,
@@ -19,12 +20,12 @@ const connectWithRetry = async (mongoUri) => {
     state.connected = true;
     state.lastError = null;
     state.retrying = false;
-    console.log('MongoDB connected');
+    logInfo('db', { message: 'MongoDB connected' });
   } catch (error) {
     state.connected = false;
     state.lastError = error.message;
     state.retrying = false;
-    console.error('MongoDB connection failed. Retrying in 5s...');
+    logError('db', { message: 'MongoDB connection failed. Retrying in 5s...', error });
     setTimeout(() => connectWithRetry(mongoUri), 5000);
   }
 };

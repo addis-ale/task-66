@@ -61,9 +61,9 @@ describe('CuratorTab publish blocking', () => {
             validation: {
               status: 'FAILED',
               issues: [
-                { severity: 'BLOCKING', type: 'DUPLICATE', nodeId: 'n1', message: 'Duplicate label detected for Blue Airmail' },
-                { severity: 'BLOCKING', type: 'CIRCULAR_REF', edgeId: 'e1', message: 'Circular reference found in graph' },
-                { severity: 'WARNING', type: 'ORPHAN', nodeId: 'n2', message: 'Node has no outgoing edges' }
+                { severity: 'BLOCKING', code: 'DUPLICATE_NODE', nodeId: 'n1', message: 'Duplicate label detected for Blue Airmail' },
+                { severity: 'BLOCKING', code: 'CYCLE', edgeId: 'e1', message: 'Circular reference found in graph' },
+                { severity: 'WARNING', code: 'ORPHAN_NODE', nodeId: 'n2', message: 'Node has no outgoing edges' }
               ]
             }
           }

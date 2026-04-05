@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { validateJobDraft } from '../validators/forms';
 
 const isQueued = (response) => response?.data?.queued === true;
 
@@ -23,6 +24,7 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
     history: null
   });
 
+  const [validationError, setValidationError] = useState('');
   const canEdit = roles.includes('Administrator') || roles.includes('Employer');
   const canApprove = roles.includes('Administrator') || roles.includes('Reviewer');
   const canRead =
@@ -54,6 +56,12 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
 
   const createDraft = () =>
     run('create-draft', async () => {
+      const vErr = validateJobDraft(jobForm);
+      if (vErr) {
+        setValidationError(vErr);
+        throw new Error(vErr);
+      }
+      setValidationError('');
       const response = await apiRequest({ path: '/jobs', method: 'POST', csrfToken, body: jobForm });
       if (isQueued(response)) {
         setMessage('Job draft queued offline. It will sync when back online.');
@@ -245,6 +253,7 @@ function StaffingTab({ apiRequest, csrfToken, roles, acquireStepUpTokenFor, setM
     <article className="card">
       <h2>Staffing Governance Lifecycle</h2>
       <p className="small">Manage draft to submit to approve/reject to takedown to appeal to decision workflows with role-based action visibility.</p>
+      {validationError ? <p className="notice err">{validationError}</p> : null}
 
       <section className="route-block">
         <h3>Draft Authoring</h3>

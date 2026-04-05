@@ -5,7 +5,8 @@ const loginPayloadByUser = {
   'manager.dev': { id: 'user-manager', username: 'manager.dev', roles: ['Exhibit Manager'] },
   'coordinator.dev': { id: 'user-coord', username: 'coordinator.dev', roles: ['Program Coordinator'] },
   'admin.dev': { id: 'user-admin', username: 'admin.dev', roles: ['Administrator'] },
-  'employer.dev': { id: 'user-employer', username: 'employer.dev', roles: ['Employer'] }
+  'employer.dev': { id: 'user-employer', username: 'employer.dev', roles: ['Employer'] },
+  'reviewer.dev': { id: 'user-reviewer', username: 'reviewer.dev', roles: ['Reviewer'] }
 };
 
 const setupCommonAuthRoutes = async (page) => {
@@ -366,4 +367,62 @@ test('staffing approval happy path', async ({ page }) => {
   await page.getByPlaceholder('step-up password').fill('AdminSecure!2026');
   await page.getByRole('button', { name: 'Approve (Step-Up)' }).click();
   await expect(page.getByText('Job approved and published')).toBeVisible();
+});
+
+test('reviewer role has access to search, navigation, staffing, inbox but not curator or exports', async ({ page }) => {
+  await setupCommonAuthRoutes(page);
+
+  await page.route('**/api/v1/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+
+    if (url.pathname.endsWith('/catalog/search')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{ id: 'itm_rv_1', title: 'Reviewed Stamp', catalogNumber: 'RV-1', artist: 'Reviewer', series: 'Check', period: '1950' }],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 }
+        })
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/catalog/hot-keywords')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) });
+      return;
+    }
+    if (url.pathname.includes('/inbox/messages')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{ id: 'msg_rv', type: 'SYSTEM', title: 'Review Notice', body: 'Review pending', createdAt: '2026-04-01T10:00:00.000Z', readAt: null }],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 }
+        })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto('/');
+  await signIn(page, 'reviewer.dev', 'ReviewerSecure!2026');
+
+  const curatorBtn = page.getByRole('button', { name: 'Curator Admin' });
+  await expect(curatorBtn).toBeDisabled();
+
+  const exportsBtn = page.getByRole('button', { name: 'Exports' });
+  await expect(exportsBtn).toBeDisabled();
+
+  await page.getByPlaceholder('title').fill('stamp');
+  await page.getByRole('button', { name: /^Search$/ }).click();
+  await expect(page.getByText('Reviewed Stamp')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Inbox' }).click();
+  await page.getByRole('button', { name: 'Load Inbox' }).click();
+  await expect(page.getByText('Review Notice')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Staffing' }).click();
+  await expect(page.getByText('Staffing Governance')).toBeVisible();
 });

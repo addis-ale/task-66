@@ -25,13 +25,49 @@ router.get('/config', requirePermission('ANALYTICS_REPORT_MANAGE'), async (req, 
 });
 
 router.patch('/config', requirePermission('ANALYTICS_REPORT_MANAGE'), requireStepUp(STEP_UP_ACTIONS.ADMIN_CONFIG_UPDATE), async (req, res) => {
-  return sendError(
-    res,
-    req,
-    501,
-    'NOT_IMPLEMENTED',
-    'Config updates are managed via environment configuration in this skeleton'
-  );
+  const updatable = ['searchCacheTtlSeconds', 'reportScheduleTimezone', 'waitlistPromotionExpiryMinutes', 'inboxRetentionDays'];
+  const updates = {};
+  for (const key of updatable) {
+    if (req.body[key] !== undefined) {
+      updates[key] = req.body[key];
+    }
+  }
+  if (Object.keys(updates).length === 0) {
+    return sendError(res, req, 400, 'VALIDATION_ERROR', 'No valid config keys provided', [
+      { field: 'body', issue: `updatable keys: ${updatable.join(', ')}` }
+    ]);
+  }
+
+  if (updates.searchCacheTtlSeconds !== undefined) {
+    config.search.cacheTtlSeconds = Number(updates.searchCacheTtlSeconds);
+  }
+  if (updates.reportScheduleTimezone !== undefined) {
+    config.reporting.scheduleTimezone = String(updates.reportScheduleTimezone);
+  }
+  if (updates.waitlistPromotionExpiryMinutes !== undefined) {
+    config.operations.waitlistPromotionExpiryMinutes = Number(updates.waitlistPromotionExpiryMinutes);
+  }
+  if (updates.inboxRetentionDays !== undefined) {
+    config.operations.inboxRetentionDays = Number(updates.inboxRetentionDays);
+  }
+
+  const { logAuditEvent } = require('../services/events');
+  await logAuditEvent({
+    actorId: req.auth.userId,
+    action: 'ADMIN_CONFIG_UPDATE',
+    entityType: 'system_config',
+    entityId: 'runtime',
+    metadata: updates
+  });
+
+  return res.status(200).json({
+    data: {
+      searchCacheTtlSeconds: config.search.cacheTtlSeconds,
+      reportScheduleTimezone: config.reporting.scheduleTimezone,
+      waitlistPromotionExpiryMinutes: config.operations.waitlistPromotionExpiryMinutes,
+      inboxRetentionDays: config.operations.inboxRetentionDays
+    }
+  });
 });
 
 router.post('/cache/invalidate', requirePermission('CATALOG_CURATION'), async (req, res) => {

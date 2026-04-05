@@ -127,6 +127,91 @@ describe('SearchDiscoveryTab', () => {
     expect(apiRequest).toHaveBeenCalledTimes(1);
   });
 
+  it('shows queued message for hot-keyword creation when offline', async () => {
+    const user = userEvent.setup();
+    const props = createBaseProps(vi.fn(async (request) => {
+      if (request.path === '/catalog/hot-keywords' && request.method === 'POST') {
+        return { data: { queued: true, message: 'Request queued while offline and will sync automatically' } };
+      }
+      return { data: [] };
+    }));
+
+    render(<SearchDiscoveryTab {...props} />);
+
+    await user.type(screen.getByPlaceholderText('keyword'), 'Vintage Airmail');
+    await user.type(screen.getByPlaceholderText('rank'), '5');
+    await user.click(screen.getByRole('button', { name: 'Save Keyword' }));
+
+    await waitFor(() => {
+      expect(props.setMessage).toHaveBeenCalledWith(
+        'Keyword creation queued offline. It will sync when back online.'
+      );
+    });
+  });
+
+  it('shows queued message for hot-keyword update when offline', async () => {
+    const user = userEvent.setup();
+    const props = createBaseProps(vi.fn(async (request) => {
+      if (request.path === '/catalog/hot-keywords' && request.method === 'GET') {
+        return {
+          data: [{ id: 'kw_1', keyword: 'Stamp Show', rank: 3, activeFrom: '', activeTo: '' }]
+        };
+      }
+      if (request.method === 'PATCH') {
+        return { data: { queued: true, message: 'Request queued while offline and will sync automatically' } };
+      }
+      return { data: [] };
+    }));
+
+    render(<SearchDiscoveryTab {...props} />);
+
+    await user.click(screen.getByRole('button', { name: 'Load Hot Keywords' }));
+    await waitFor(() => {
+      expect(screen.getByText('Stamp Show')).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.clear(screen.getByPlaceholderText('rank'));
+    await user.type(screen.getByPlaceholderText('rank'), '10');
+    await user.click(screen.getByRole('button', { name: 'Save Keyword' }));
+
+    await waitFor(() => {
+      expect(props.setMessage).toHaveBeenCalledWith(
+        'Keyword update queued offline. It will sync when back online.'
+      );
+    });
+  });
+
+  it('shows queued message for hot-keyword retirement when offline', async () => {
+    const user = userEvent.setup();
+    const props = createBaseProps(vi.fn(async (request) => {
+      if (request.path === '/catalog/hot-keywords' && request.method === 'GET') {
+        return {
+          data: [{ id: 'kw_2', keyword: 'Rare Stamps', rank: 1, activeFrom: '', activeTo: '' }]
+        };
+      }
+      if (request.method === 'DELETE') {
+        return { data: { queued: true, message: 'Request queued while offline and will sync automatically' } };
+      }
+      return { data: [] };
+    }));
+
+    render(<SearchDiscoveryTab {...props} />);
+
+    await user.click(screen.getByRole('button', { name: 'Load Hot Keywords' }));
+    await waitFor(() => {
+      expect(screen.getByText('Rare Stamps')).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Retire' }));
+
+    await waitFor(() => {
+      expect(props.setMessage).toHaveBeenCalledWith(
+        'Keyword retirement queued offline. It will sync when back online.'
+      );
+    });
+  });
+
   it('normalizes legacy nested search payloads', async () => {
     const user = userEvent.setup();
     const apiRequest = vi.fn(async (request) => {

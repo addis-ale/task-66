@@ -62,8 +62,8 @@ const levenshteinDistance = (left, right) => {
 };
 
 const roleScopeFromRequest = (req) => {
-  const roles = req.auth?.roles || req.session?.auth?.roles || ['ANON'];
-  return [...roles].sort().join('|');
+  const roles = req.auth?.roles || [];
+  return [...roles].sort().join('|') || 'NONE';
 };
 
 const canonicalQuery = (source) => JSON.stringify(source, Object.keys(source).sort());
@@ -137,6 +137,7 @@ const toCatalogResponseItem = (item) => ({
   series: item.series,
   country: item.country,
   period: item.period,
+  category: item.category || null,
   tags: item.tags
 });
 
@@ -204,7 +205,7 @@ const scoreCatalogItem = (queryText, item) => {
   return Number(bestScore.toFixed(2));
 };
 
-router.get('/search', async (req, res) => {
+router.get('/search', requireAuth, requirePermission('CATALOG_READ'), async (req, res) => {
   const page = parsePage(req.query.page);
   const pageSizeRaw = Number(req.query.pageSize || 20);
   const pageSize = clampPageSize(req.query.pageSize);
@@ -308,7 +309,7 @@ router.get('/search', async (req, res) => {
   return res.status(200).json(payload);
 });
 
-router.get('/autocomplete', async (req, res) => {
+router.get('/autocomplete', requireAuth, requirePermission('CATALOG_READ'), async (req, res) => {
   const q = String(req.query.q || '').trim();
   const limit = Number(req.query.limit || 8);
 
@@ -333,8 +334,10 @@ router.get('/autocomplete', async (req, res) => {
     const candidates = [
       { type: 'title', value: item.title },
       { type: 'catalogNumber', value: item.catalog_number },
-      { type: 'artist', value: item.artist }
-    ];
+      { type: 'artist', value: item.artist },
+      { type: 'series', value: item.series },
+      { type: 'period', value: item.period }
+    ].filter((c) => c.value);
 
     for (const candidate of candidates) {
       const score = scoreCatalogItem(q, { ...item, title: candidate.value, catalog_number: candidate.value, artist: candidate.value });

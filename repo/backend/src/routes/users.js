@@ -57,7 +57,7 @@ router.patch('/:userId', async (req, res) => {
   const updates = {};
 
   if (req.body.roles !== undefined) {
-    if (!Array.isArray(req.body.roles) || req.body.roles.some((role) => !ROLES.includes(role))) {
+    if (!Array.isArray(req.body.roles) || req.body.roles.length === 0 || req.body.roles.some((role) => !ROLES.includes(role))) {
       return sendError(res, req, 400, 'VALIDATION_ERROR', 'Request validation failed', [
         { field: 'roles', issue: 'must be a subset of role enum' }
       ]);

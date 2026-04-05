@@ -6,6 +6,9 @@ const reportDefinitionSchema = new Schema(
     name: { type: String, required: true },
     dataset: { type: String, required: true },
     format: { type: String, enum: ['CSV', 'JSON'], required: true },
+    dimensions: { type: [{ key: String, type: String }], default: [] },
+    group_by: { type: String, default: null },
+    filter_template: { type: Schema.Types.Mixed, default: {} },
     schedule: {
       time: { type: String, required: true },
       timezone: { type: String, required: true }

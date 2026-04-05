@@ -17,7 +17,8 @@ describe('Operations console structured workflows', () => {
 
     const fetchMock = vi.fn(async (input, init = {}) => {
       const method = String(init.method || 'GET').toUpperCase();
-      const url = new URL(typeof input === 'string' ? input : String(input));
+      const raw = typeof input === 'string' ? input : String(input);
+      const url = new URL(raw, 'http://localhost');
       const path = url.pathname.replace('/api/v1', '');
 
       if (path === '/auth/login' && method === 'POST') {
@@ -39,7 +40,16 @@ describe('Operations console structured workflows', () => {
       }
 
       if (path === '/analytics/metrics' && method === 'POST') {
-        return jsonResponse(201, { data: { id: 'met_1', key: 'weekly_bookings', name: 'Weekly Bookings' } });
+        const body = JSON.parse(init.body || '{}');
+        return jsonResponse(201, {
+          data: {
+            id: 'met_1',
+            key: 'weekly_bookings',
+            name: 'Weekly Bookings',
+            dimensions: body.dimensions || [],
+            groupBy: body.groupBy || null
+          }
+        });
       }
       if (path === '/analytics/anomaly-rules' && method === 'POST') {
         return jsonResponse(201, { data: { id: 'rule_1', ruleKey: 'bookings_drop_wow_30' } });
@@ -200,7 +210,14 @@ describe('Operations console structured workflows', () => {
     expect(screen.getByText('Step 1) Metric and Anomaly Rule')).toBeTruthy();
     expect(screen.queryByText('Analytics details')).toBeNull();
 
+    expect(screen.getByPlaceholderText('dimensions (key:TYPE,...)')).toBeTruthy();
+    expect(screen.getByPlaceholderText('group by dimension')).toBeTruthy();
+
     await user.click(screen.getByRole('button', { name: 'Save Metric + Rule' }));
+    await waitFor(() => {
+      expect(screen.getByText(/date:DATE/)).toBeTruthy();
+    });
+
     await user.click(screen.getByRole('button', { name: 'Create Dashboard' }));
     await waitFor(() => {
       expect(screen.getAllByText('weekly_bookings').length).toBeGreaterThan(0);

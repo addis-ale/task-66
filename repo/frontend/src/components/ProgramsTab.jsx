@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { validateProgramDraft, validateSessionDraft } from '../validators/forms';
 
 const isQueued = (response) => response?.data?.queued === true;
 
@@ -50,6 +51,7 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
     printable: null
   });
 
+  const [validationError, setValidationError] = useState('');
   const sessionReady = Boolean(state.program?.id && state.coach?.id);
 
   const activeRegistrations = useMemo(
@@ -75,6 +77,12 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
 
   const createProgram = () =>
     run('create-program', async () => {
+      const vErr = validateProgramDraft(programDraft);
+      if (vErr) {
+        setValidationError(vErr);
+        throw new Error(vErr);
+      }
+      setValidationError('');
       const response = await apiRequest({
         path: '/programs',
         method: 'POST',
@@ -144,6 +152,12 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
       if (!state.program?.id || !state.coach?.id) {
         throw new Error('Create program and coach first');
       }
+      const sErr = validateSessionDraft(sessionDraft);
+      if (sErr) {
+        setValidationError(sErr);
+        throw new Error(sErr);
+      }
+      setValidationError('');
       const response = await apiRequest({
         path: '/program-sessions',
         method: 'POST',
@@ -330,6 +344,7 @@ function ProgramsTab({ apiRequest, csrfToken, setMessage, setError }) {
     <article className="card">
       <h2>Program Scheduling & Capacity Operations</h2>
       <p className="small">Stepwise operations for scheduling, waitlists, penalties, notifications, and printable outputs.</p>
+      {validationError ? <p className="notice err">{validationError}</p> : null}
 
       <section className="route-block">
         <h3>1) Create Program</h3>

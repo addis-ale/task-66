@@ -57,6 +57,31 @@ export const validateEdgeForm = (form) => {
   return null;
 };
 
+export const validateProgramDraft = ({ type, title, capacity }) => {
+  if (!type || !type.trim()) return 'Program type is required';
+  if (!title || !title.trim()) return 'Program title is required';
+  const cap = Number(capacity);
+  if (!Number.isInteger(cap) || cap < 1) return 'Capacity must be a positive integer';
+  return null;
+};
+
+export const validateSessionDraft = ({ venueId, startAtUtc, endAtUtc, capacity }) => {
+  if (!venueId || !venueId.trim()) return 'Venue is required';
+  if (!startAtUtc || !startAtUtc.trim()) return 'Session start time is required';
+  if (!endAtUtc || !endAtUtc.trim()) return 'Session end time is required';
+  if (startAtUtc >= endAtUtc) return 'Session end must be after session start';
+  const cap = Number(capacity);
+  if (!Number.isInteger(cap) || cap < 1) return 'Capacity must be a positive integer';
+  return null;
+};
+
+export const validateJobDraft = ({ department, title, description }) => {
+  if (!department || !department.trim()) return 'Department is required';
+  if (!title || !title.trim()) return 'Job title is required';
+  if (!description || !description.trim()) return 'Job description is required';
+  return null;
+};
+
 export const validateRouteSegmentInput = ({ fromCaseId, toCaseId, dwellMinutes, distanceMeters }) => {
   if (!fromCaseId || !toCaseId) {
     return 'Select both From and To display cases';

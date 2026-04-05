@@ -31,7 +31,7 @@ const canMutateDraft = (req, draft) => {
 
 router.use(requireAuth);
 
-router.get('/versions', async (req, res) => {
+router.get('/versions', requirePermission('GRAPH_READ'), async (req, res) => {
   const versions = await GraphVersion.find({}, { snapshot: 0 })
     .sort({ version: -1 })
     .limit(100)

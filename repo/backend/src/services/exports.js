@@ -110,12 +110,12 @@ const applyFieldPolicy = ({ resource, rows, requestedFields, userRoles }) => {
     return output;
   });
 
-  const preview = transformedRows[0] || {};
-  const maskingPreview = {
-    phone: preview.phone,
-    notes: preview.notes,
-    email: preview.email
-  };
+  const maskingPreview = policy.sensitiveFields
+    .filter((field) => sanitizedFields.includes(field))
+    .map((field) => ({
+      field,
+      rule: roleTransform[field] ? (field === 'phone' ? 'last4' : field === 'email' ? 'partial' : 'redacted') : 'denied'
+    }));
 
   return {
     transformedRows,

@@ -27,15 +27,21 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+    volumes:
+      - reconciliation_data:/app/reconciliation
+      - ./run_tests.sh:/repo/run_tests.sh:ro
+      - ./unit_tests:/repo/unit_tests:ro
+      - ./API_tests:/repo/API_tests:ro
+      - ./backend:/repo/backend
     environment:
       NODE_ENV: production
       PORT: 8080
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173,http://localhost:8888}
       ENABLE_SWAGGER: ${ENABLE_SWAGGER:-true}
-      SESSION_SECRET: ${SESSION_SECRET:-local-dev-session-secret-change-me}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET to a strong random value}
       SESSION_COOKIE_NAME: museum_sid
       SESSION_COOKIE_SAME_SITE: strict
-      SESSION_COOKIE_SECURE: "false"
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       SESSION_IDLE_TTL_SECONDS: 1800
       SESSION_ABSOLUTE_TTL_SECONDS: 43200
       STEP_UP_TTL_MINUTES: 10
@@ -48,8 +54,6 @@ services:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-museum_user}:${MONGO_INITDB_ROOT_PASSWORD:-museum_pass}@mongo:27017/${MONGO_INITDB_DATABASE:-museum_ops}?authSource=admin
     ports:
       - "8888:8080"
-    volumes:
-      - reconciliation_data:/app/reconciliation
     healthcheck:
       test:
         [

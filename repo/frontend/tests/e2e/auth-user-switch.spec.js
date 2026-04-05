@@ -79,7 +79,7 @@ test('user switch does not show stale cross-user data', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Sign Out' }).click();
   await expect(page.getByText('Signed out')).toBeVisible();
-  await expect(page.getByText('Allowed tabs: Search/Browse | Guided Navigation')).toBeVisible();
+  await expect(page.getByText('Allowed tabs: none')).toBeVisible();
 
   await page.getByPlaceholder('username').fill('employer.dev');
   await page.getByPlaceholder('password').first().fill('EmployerSecure!2026');

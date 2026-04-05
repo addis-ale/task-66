@@ -898,6 +898,29 @@ test('catalog: page size validation, filtering, autocomplete, hot keywords role 
   assert.equal(keywordDelete.status, 204);
 });
 
+test('GET /routes returns paginated route listing for ROUTE_READ roles', { concurrency: false }, async () => {
+  const reviewer = await login('reviewer.dev', 'ReviewerSecure!2026');
+
+  const listing = await request({
+    path: '/routes',
+    method: 'GET',
+    cookie: reviewer.cookie,
+    query: { pageSize: '5', page: '1' }
+  });
+  assert.equal(listing.status, 200);
+  const body = listing.json;
+  assert.ok(Array.isArray(body.data), 'data should be an array');
+  assert.ok(body.pagination, 'should include pagination');
+  assert.ok(typeof body.pagination.page === 'number');
+  assert.ok(typeof body.pagination.totalPages === 'number');
+
+  if (body.data.length > 0) {
+    const route = body.data[0];
+    assert.ok(route.routeId, 'route should have routeId');
+    assert.ok(route.name, 'route should have name');
+  }
+});
+
 test('routes and itinerary behavior with required/optional/detour and time math', { concurrency: false }, async () => {
   const admin = await login('admin.dev', 'AdminSecure!2026');
   const suffix = `${Date.now()}`;
@@ -1035,7 +1058,7 @@ test('routes and itinerary behavior with required/optional/detour and time math'
   assert.ok(optional.status === 201);
 });
 
-test('route guided read endpoints are publicly accessible for visitor and floor-staff use', { concurrency: false }, async () => {
+test('route guided read endpoints require authentication and ROUTE_READ permission', { concurrency: false }, async () => {
   const admin = await login('admin.dev', 'AdminSecure!2026');
   const reviewer = await login('reviewer.dev', 'ReviewerSecure!2026');
   const suffix = `${Date.now()}`;
@@ -1118,6 +1141,12 @@ test('route guided read endpoints are publicly accessible for visitor and floor-
   assert.equal(reviewerItineraries.status, 200);
   assert.ok(Array.isArray(reviewerItineraries.json.data));
 
+  const unauthRouteRead = await request({
+    path: `/routes/${route.json.data.routeId}`,
+    method: 'GET'
+  });
+  assert.equal(unauthRouteRead.status, 401, 'unauthenticated route read returns 401');
+
   const noRouteReadUsername = `no.route.read.${suffix}`;
   await createUserAsAdmin(admin, {
     username: noRouteReadUsername,
@@ -1129,13 +1158,12 @@ test('route guided read endpoints are publicly accessible for visitor and floor-
   });
   const noRouteReadUser = await login(noRouteReadUsername, 'NoRouteRead!2026');
 
-  const publicRead = await request({
+  const noPermRead = await request({
     path: `/routes/${route.json.data.routeId}`,
     method: 'GET',
     cookie: noRouteReadUser.cookie
   });
-  assert.equal(publicRead.status, 200);
-  assert.ok(publicRead.json.data.routeId, 'route read is publicly accessible for visitor/floor-staff access');
+  assert.equal(noPermRead.status, 403, 'user without ROUTE_READ permission gets 403');
 });
 
 test('routes reject invalid segment metrics and invalid optional branch selection', { concurrency: false }, async () => {
@@ -1282,19 +1310,22 @@ test('catalog fuzzy matching and cache lifecycle with role-scope isolation', { c
   assert.equal(secondAuthed.status, 200);
   assert.equal(secondAuthed.json.meta.cache, 'HIT');
 
-  const firstAnon = await request({
+  const reviewer = await login('reviewer.dev', 'ReviewerSecure!2026');
+  const firstOtherRole = await request({
     path: `/catalog/search?q=${encodeURIComponent(typoQuery)}&page=1&pageSize=10`,
-    method: 'GET'
+    method: 'GET',
+    cookie: reviewer.cookie
   });
-  assert.equal(firstAnon.status, 200);
-  assert.equal(firstAnon.json.meta.cache, 'MISS');
+  assert.equal(firstOtherRole.status, 200);
+  assert.equal(firstOtherRole.json.meta.cache, 'MISS');
 
-  const secondAnon = await request({
+  const secondOtherRole = await request({
     path: `/catalog/search?q=${encodeURIComponent(typoQuery)}&page=1&pageSize=10`,
-    method: 'GET'
+    method: 'GET',
+    cookie: reviewer.cookie
   });
-  assert.equal(secondAnon.status, 200);
-  assert.equal(secondAnon.json.meta.cache, 'HIT');
+  assert.equal(secondOtherRole.status, 200);
+  assert.equal(secondOtherRole.json.meta.cache, 'HIT');
 
   await withMongo(async (connection) => {
     await connection.collection('search_cache').updateMany(
@@ -1954,8 +1985,14 @@ test('audit endpoint authz, filters, pagination, and safe payload; anomaly inbox
     await sleep(300);
   }
   assert.ok(exportResult);
-  assert.equal(exportResult.json.data.maskingPreview.notes, '[REDACTED]');
-  assert.equal(exportResult.json.data.maskingPreview.phone, '***-***-1234');
+  const preview = exportResult.json.data.maskingPreview;
+  assert.ok(Array.isArray(preview), 'maskingPreview should be an array');
+  const phoneEntry = preview.find((e) => e.field === 'phone');
+  const notesEntry = preview.find((e) => e.field === 'notes');
+  assert.ok(phoneEntry, 'should include phone masking entry');
+  assert.equal(phoneEntry.rule, 'last4');
+  assert.ok(notesEntry, 'should include notes masking entry');
+  assert.equal(notesEntry.rule, 'redacted');
 
   const coordAudit = await request({ path: '/audit/events', method: 'GET', cookie: coordinator.cookie });
   assert.equal(coordAudit.status, 403);
@@ -2046,4 +2083,149 @@ test('program registration handles concurrent duplicate submissions safely', { c
 
   const statuses = [first.status, second.status].sort();
   assert.deepEqual(statuses, [201, 409]);
+});
+
+test('analytics metric/dimension definition persistence and report configurability', { concurrency: false }, async () => {
+  const admin = await login('admin.dev', 'AdminSecure!2026');
+  const suffix = `${Date.now()}`;
+
+  // Create a dimension definition that maps a key to a canonical DB field
+  const dimResult = await request({
+    path: '/analytics/dimensions',
+    method: 'POST',
+    cookie: admin.cookie,
+    csrfToken: admin.csrfToken,
+    body: {
+      key: `reg_status_${suffix}`,
+      name: 'Registration Status',
+      dataset: 'registrations',
+      field: 'status',
+      dataType: 'STRING'
+    }
+  });
+  assert.equal(dimResult.status, 201);
+  assert.ok(dimResult.json.data.key);
+
+  // Create a metric that references the dimension via group_by
+  const metricResult = await request({
+    path: '/analytics/metrics',
+    method: 'POST',
+    cookie: admin.cookie,
+    csrfToken: admin.csrfToken,
+    body: {
+      key: `status_count_${suffix}`,
+      name: 'Status Count',
+      dataset: 'registrations',
+      aggregation: 'count',
+      dimensions: [{ key: `reg_status_${suffix}`, type: 'STRING' }],
+      groupBy: `reg_status_${suffix}`
+    }
+  });
+  assert.equal(metricResult.status, 201);
+  assert.ok(metricResult.json.data.dimensions.length > 0, 'dimensions should be persisted');
+  assert.equal(metricResult.json.data.groupBy, `reg_status_${suffix}`);
+
+  // Create a report definition with dimensions/groupBy/filter_template
+  const reportResult = await request({
+    path: '/analytics/reports',
+    method: 'POST',
+    cookie: admin.cookie,
+    csrfToken: admin.csrfToken,
+    body: {
+      name: `Grouped Report ${suffix}`,
+      dataset: 'program_registrations',
+      format: 'JSON',
+      dimensions: [{ key: `reg_status_${suffix}`, type: 'STRING' }],
+      groupBy: `reg_status_${suffix}`,
+      filterTemplate: { status: 'REGISTERED' },
+      schedule: { time: '02:00', timezone: 'America/New_York' }
+    }
+  });
+  assert.equal(reportResult.status, 201);
+  assert.ok(reportResult.json.data.reportId);
+  assert.deepEqual(reportResult.json.data.dimensions, [{ key: `reg_status_${suffix}`, type: 'STRING' }]);
+  assert.equal(reportResult.json.data.groupBy, `reg_status_${suffix}`);
+
+  // Run the report and verify it succeeds with grouped output
+  const runResult = await request({
+    path: `/analytics/reports/${reportResult.json.data.reportId}/run`,
+    method: 'POST',
+    cookie: admin.cookie,
+    csrfToken: admin.csrfToken
+  });
+  assert.equal(runResult.status, 200);
+  assert.ok(runResult.json.data.runId);
+  assert.equal(runResult.json.data.status, 'SUCCESS');
+
+  // Verify runs list returns the completed run
+  const runsResult = await request({
+    path: `/analytics/reports/${reportResult.json.data.reportId}/runs`,
+    method: 'GET',
+    cookie: admin.cookie
+  });
+  assert.equal(runsResult.status, 200);
+  assert.ok(runsResult.json.data.length >= 1);
+  assert.equal(runsResult.json.data[0].status, 'SUCCESS');
+
+  // Create a dashboard using the configurable metric
+  const dashResult = await request({
+    path: '/analytics/dashboards',
+    method: 'POST',
+    cookie: admin.cookie,
+    csrfToken: admin.csrfToken,
+    body: {
+      name: `Config Dashboard ${suffix}`,
+      tiles: [{ metric: `status_count_${suffix}` }],
+      anomalyRules: []
+    }
+  });
+  assert.equal(dashResult.status, 201);
+
+  // Fetch dashboard and verify metric was computed (value should be numeric)
+  const dashGet = await request({
+    path: `/analytics/dashboards/${dashResult.json.data.dashboardId}`,
+    method: 'GET',
+    cookie: admin.cookie
+  });
+  assert.equal(dashGet.status, 200);
+  assert.ok(dashGet.json.data.tiles.length === 1);
+  assert.equal(dashGet.json.data.tiles[0].metric, `status_count_${suffix}`);
+  assert.equal(typeof dashGet.json.data.tiles[0].value, 'number');
+
+  // Verify invalid filter operators are stripped (no crash)
+  const metricBadFilter = await request({
+    path: '/analytics/metrics',
+    method: 'POST',
+    cookie: admin.cookie,
+    csrfToken: admin.csrfToken,
+    body: {
+      key: `filtered_${suffix}`,
+      name: 'Filtered Metric',
+      dataset: 'registrations',
+      aggregation: 'count',
+      filterTemplate: { status: { $eq: 'REGISTERED' }, '$where': 'sleep(1000)' }
+    }
+  });
+  assert.equal(metricBadFilter.status, 201);
+
+  // Create dashboard with the filtered metric; $where should be stripped
+  const dashFiltered = await request({
+    path: '/analytics/dashboards',
+    method: 'POST',
+    cookie: admin.cookie,
+    csrfToken: admin.csrfToken,
+    body: {
+      name: `Filtered Dashboard ${suffix}`,
+      tiles: [{ metric: `filtered_${suffix}` }],
+      anomalyRules: []
+    }
+  });
+  assert.equal(dashFiltered.status, 201);
+  const dashFilteredGet = await request({
+    path: `/analytics/dashboards/${dashFiltered.json.data.dashboardId}`,
+    method: 'GET',
+    cookie: admin.cookie
+  });
+  assert.equal(dashFilteredGet.status, 200);
+  assert.equal(typeof dashFilteredGet.json.data.tiles[0].value, 'number');
 });

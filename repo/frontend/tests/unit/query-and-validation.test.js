@@ -7,8 +7,11 @@ import {
   parsePositiveInt,
   tryParseJsonObject,
   validateEdgeForm,
+  validateJobDraft,
   validateNodeForm,
-  validateRouteSegmentInput
+  validateProgramDraft,
+  validateRouteSegmentInput,
+  validateSessionDraft
 } from '../../src/validators/forms.js';
 
 test('combined query joins title/catalog/artist/series/period fields', () => {
@@ -57,4 +60,27 @@ test('numeric helper boundaries for pagination are stable', () => {
   assert.equal(clampPageSize('55', 50), 50);
   assert.equal(parsePositiveInt('3.8', 1), 3);
   assert.equal(parsePositiveInt('oops', 7), 7);
+});
+
+test('validateProgramDraft rejects empty type, title, and invalid capacity', () => {
+  assert.equal(validateProgramDraft({ type: '', title: 'X', capacity: '2' }), 'Program type is required');
+  assert.equal(validateProgramDraft({ type: 'DOCENT', title: '', capacity: '2' }), 'Program title is required');
+  assert.equal(validateProgramDraft({ type: 'DOCENT', title: 'X', capacity: '0' }), 'Capacity must be a positive integer');
+  assert.equal(validateProgramDraft({ type: 'DOCENT', title: 'X', capacity: 'abc' }), 'Capacity must be a positive integer');
+  assert.equal(validateProgramDraft({ type: 'DOCENT', title: 'X', capacity: '5' }), null);
+});
+
+test('validateSessionDraft rejects missing fields and bad time ordering', () => {
+  assert.equal(validateSessionDraft({ venueId: '', startAtUtc: 'a', endAtUtc: 'b', capacity: '2' }), 'Venue is required');
+  assert.equal(validateSessionDraft({ venueId: 'v', startAtUtc: '', endAtUtc: 'b', capacity: '2' }), 'Session start time is required');
+  assert.equal(validateSessionDraft({ venueId: 'v', startAtUtc: '2026-07-01T15:00:00Z', endAtUtc: '2026-07-01T14:00:00Z', capacity: '2' }), 'Session end must be after session start');
+  assert.equal(validateSessionDraft({ venueId: 'v', startAtUtc: '2026-07-01T14:00:00Z', endAtUtc: '2026-07-01T15:00:00Z', capacity: '-1' }), 'Capacity must be a positive integer');
+  assert.equal(validateSessionDraft({ venueId: 'v', startAtUtc: '2026-07-01T14:00:00Z', endAtUtc: '2026-07-01T15:00:00Z', capacity: '2' }), null);
+});
+
+test('validateJobDraft rejects empty department, title, and description', () => {
+  assert.equal(validateJobDraft({ department: '', title: 'X', description: 'Y' }), 'Department is required');
+  assert.equal(validateJobDraft({ department: 'Events', title: '', description: 'Y' }), 'Job title is required');
+  assert.equal(validateJobDraft({ department: 'Events', title: 'X', description: '' }), 'Job description is required');
+  assert.equal(validateJobDraft({ department: 'Events', title: 'X', description: 'Y' }), null);
 });

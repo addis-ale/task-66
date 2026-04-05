@@ -18,9 +18,41 @@ const router = express.Router();
 
 const METERS_PER_MINUTE_AT_3MPH = 80.4672;
 
-/* --- Public route-read endpoints (visitor / floor-staff access) --- */
+/* --- Authenticated route-read endpoints (ROUTE_READ permission required) --- */
 
-router.get('/routes/:routeId', async (req, res) => {
+router.get('/routes', requireAuth, requirePermission('ROUTE_READ'), async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.min(50, Math.max(1, parseInt(req.query.pageSize, 10) || 20));
+  const skip = (page - 1) * pageSize;
+
+  const filter = {};
+  if (req.query.venueId) filter.venue_id = req.query.venueId;
+  if (req.query.status) filter.status = req.query.status;
+
+  const [routes, total] = await Promise.all([
+    Route.find(filter).sort({ _id: -1 }).skip(skip).limit(pageSize).lean(),
+    Route.countDocuments(filter)
+  ]);
+
+  return res.status(200).json({
+    data: routes.map((route) => ({
+      routeId: route.route_id,
+      venueId: String(route.venue_id),
+      name: route.name,
+      strictSequence: route.strict_sequence,
+      defaultPaceMph: route.default_pace_mph,
+      status: route.status
+    })),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize)
+    }
+  });
+});
+
+router.get('/routes/:routeId', requireAuth, requirePermission('ROUTE_READ'), async (req, res) => {
   const route = await Route.findOne({ route_id: req.params.routeId }).lean();
   if (!route) {
     return sendError(res, req, 404, 'NOT_FOUND', 'Route not found');
@@ -48,7 +80,7 @@ router.get('/routes/:routeId', async (req, res) => {
   });
 });
 
-router.get('/routes/:routeId/itineraries', async (req, res) => {
+router.get('/routes/:routeId/itineraries', requireAuth, requirePermission('ROUTE_READ'), async (req, res) => {
   const route = await Route.findOne({ route_id: req.params.routeId }).lean();
   if (!route) {
     return sendError(res, req, 404, 'NOT_FOUND', 'Route not found');
@@ -66,7 +98,7 @@ router.get('/routes/:routeId/itineraries', async (req, res) => {
   });
 });
 
-/* --- Authenticated endpoints below --- */
+/* --- Write endpoints below (require VENUE_MANAGE or ROUTE_RULE_CHANGE) --- */
 
 router.use(requireAuth);
 

@@ -11,11 +11,11 @@ export const tabs = [
   { id: 'audit', label: 'Audit' }
 ];
 
-export const PUBLIC_TABS = ['search', 'navigation'];
+export const PUBLIC_TABS = [];
 
 export const roleAccess = {
-  search: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor', '__public__'],
-  navigation: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor', '__public__'],
+  search: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor'],
+  navigation: ['Administrator', 'Curator', 'Exhibit Manager', 'Program Coordinator', 'Employer', 'Reviewer', 'Auditor'],
   curator: ['Administrator', 'Curator'],
   routes: ['Administrator', 'Exhibit Manager'],
   programs: ['Administrator', 'Program Coordinator'],
@@ -30,12 +30,12 @@ export const tabRequirementById = {
   search: {
     title: 'Catalog Search',
     description:
-      'Search and browse the museum catalog. Available to all visitors and staff.'
+      'Search and browse the museum catalog. Requires CATALOG_READ permission.'
   },
   navigation: {
     title: 'Guided Navigation',
     description:
-      'View exhibit routes and printable itineraries. Available to all visitors and staff.'
+      'View exhibit routes and printable itineraries. Requires ROUTE_READ permission.'
   },
   curator: {
     title: 'Curator Administration',

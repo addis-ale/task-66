@@ -1,11 +1,12 @@
 const express = require('express');
 const InboxMessage = require('../models/inbox-message');
 const { requireAuth } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/rbac');
 const { sendError } = require('../lib/http');
 
 const router = express.Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requirePermission('INBOX_READ'));
 
 router.get('/messages', async (req, res) => {
   const page = Math.max(1, Number(req.query.page || 1));

@@ -4,38 +4,25 @@ const User = require('../models/user');
 const ParticipantProfile = require('../models/participant-profile');
 const { hashPassword } = require('../lib/password');
 
+const passwordOverride = process.env.DEV_USER_PASSWORD_OVERRIDE || '';
+
+const buildPassword = (role) => {
+  if (passwordOverride) return passwordOverride;
+  const prefix = role.replace(/\s+/g, '');
+  return `${prefix}Secure!${new Date().getFullYear()}`;
+};
+
 const seedUsers = [
-  {
-    username: 'admin.dev',
-    password: 'AdminSecure!2026',
-    roles: ['Administrator']
-  },
-  {
-    username: 'curator.dev',
-    password: 'CuratorSecure!2026',
-    roles: ['Curator']
-  },
-  {
-    username: 'reviewer.dev',
-    password: 'ReviewerSecure!2026',
-    roles: ['Reviewer']
-  },
-  {
-    username: 'coordinator.dev',
-    password: 'CoordinatorSecure!2026',
-    roles: ['Program Coordinator']
-  },
-  {
-    username: 'employer.dev',
-    password: 'EmployerSecure!2026',
-    roles: ['Employer']
-  },
-  {
-    username: 'auditor.dev',
-    password: 'AuditorSecure!2026',
-    roles: ['Auditor']
-  }
-];
+  { username: 'admin.dev', roles: ['Administrator'] },
+  { username: 'curator.dev', roles: ['Curator'] },
+  { username: 'reviewer.dev', roles: ['Reviewer'] },
+  { username: 'coordinator.dev', roles: ['Program Coordinator'] },
+  { username: 'employer.dev', roles: ['Employer'] },
+  { username: 'auditor.dev', roles: ['Auditor'] }
+].map((entry) => ({
+  ...entry,
+  password: buildPassword(entry.roles[0])
+}));
 
 const run = async () => {
   if (!config.development.enableDevSeed) {
@@ -92,7 +79,10 @@ const run = async () => {
     { upsert: true }
   );
 
-  console.log('Development users seeded.');
+  console.log('Development users seeded:');
+  for (const entry of seedUsers) {
+    console.log(`  ${entry.username} / password: ${entry.password} (roles: ${entry.roles.join(', ')})`);
+  }
   await mongoose.connection.close();
 };
 

@@ -568,10 +568,12 @@ function RouteBuilderTab({ apiRequest, csrfToken, setMessage, setError, acquireS
                 </li>
               ))}
             </ol>
-            <details>
-              <summary>Advanced debug JSON (optional)</summary>
-              <pre>{JSON.stringify(itinerary, null, 2)}</pre>
-            </details>
+            {import.meta?.env?.MODE !== 'production' ? (
+              <details>
+                <summary>Advanced debug JSON (dev only)</summary>
+                <pre>{JSON.stringify(itinerary, null, 2)}</pre>
+              </details>
+            ) : null}
           </div>
         ) : (
           <p className="small">Commit segments and generate itinerary to view print output.</p>
